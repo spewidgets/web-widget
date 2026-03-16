@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scatterplot Data Point Identifier</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --accent: #059669;
+      --danger: #dc2626;
+      --border: #d1d5db;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1.1fr 0.9fr;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+      padding: 14px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.45rem;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+      align-items: end;
+    }
+
+    label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    input[type="file"],
+    select {
+      font: inherit;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      min-width: 110px;
+      background: white;
+    }
+
+    button {
+      font: inherit;
+      border: 0;
+      border-radius: 8px;
+      background: var(--primary);
+      color: white;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    button.secondary { background: #4b5563; }
+    button.ghost { background: #e5e7eb; color: #111827; }
+    button.danger { background: var(--danger); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .canvas-wrap {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: auto;
+      background: #fff;
+      max-height: 70vh;
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      cursor: crosshair;
+    }
+
+    .status {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      color: white;
+      background: var(--accent);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px 6px;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.35;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 960px) {
+      .app { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="card">
+      <h1>Scatterplot Data Point Identifier</h1>
+      <p class="sub">Upload a scatterplot image, calibrate the axes, then click each plotted point to extract its estimated (x, y) data value.</p>
+
+      <div class="row">
+        <label>Upload scatterplot image
+          <input id="fileInput" type="file" accept="image/*" />
+        </label>
+
+        <label>Click mode
+          <select id="modeSelect">
+            <option value="origin">Set Origin</option>
+            <option value="xmax">Set X-axis Reference</option>
+            <option value="ymax">Set Y-axis Reference</option>
+            <option value="point">Capture Data Point</option>
+          </select>
+        </label>
+
+        <label>X-axis reference value
+          <input id="xRefValue" type="number" value="10" step="any" />
+        </label>
+
+        <label>Y-axis reference value
+          <input id="yRefValue" type="number" value="10" step="any" />
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="undoBtn" class="secondary">Undo Last Point</button>
+        <button id="clearPointsBtn" class="ghost">Clear Points</button>
+        <button id="resetCalBtn" class="ghost">Reset Calibration</button>
+        <button id="exportBtn">Export CSV</button>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="plotCanvas" width="900" height="580"></canvas>
+      </div>
+      <div id="status" class="status">Load an image to begin.</div>
+      <div class="hint">
+        <strong>How calibration works:</strong> Click the axis origin (0,0), then a known point on the x-axis and enter its value, then a known point on the y-axis and enter its value. The widget maps future clicks into estimated chart values.
+      </div>
+    </section>
+
+    <aside class="card">
+      <span class="pill" id="calibrationBadge">Uncalibrated</span>
+      <h3 style="margin: 10px 0 2px;">Captured Data</h3>
+      <p class="sub" style="margin-bottom: 8px;">Pixel and estimated chart coordinates.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Pixel (x, y)</th>
+            <th>Data (x, y)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pointsBody"></tbody>
+      </table>
+
+      <div class="hint mono" id="quickStats">Points: 0</div>
+    </aside>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const modeSelect = document.getElementById('modeSelect');
+    const xRefValueInput = document.getElementById('xRefValue');
+    const yRefValueInput = document.getElementById('yRefValue');
+    const undoBtn = document.getElementById('undoBtn');
+    const clearPointsBtn = document.getElementById('clearPointsBtn');
+    const resetCalBtn = document.getElementById('resetCalBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const pointsBody = document.getElementById('pointsBody');
+    const statusEl = document.getElementById('status');
+    const calibrationBadge = document.getElementById('calibrationBadge');
+    const quickStats = document.getElementById('quickStats');
+
+    const canvas = document.getElementById('plotCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const state = {
+      image: null,
+      origin: null,
+      xRefPixel: null,
+      yRefPixel: null,
+      xRefValue: 10,
+      yRefValue: 10,
+      points: []
+    };
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function isCalibrated() {
+      return !!(state.origin && state.xRefPixel && state.yRefPixel && state.xRefValue !== 0 && state.yRefValue !== 0);
+    }
+
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (state.image) {
+        ctx.drawImage(state.image, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = '#f9fafb';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('Upload a scatterplot image', 20, 30);
+      }
+
+      drawMarker(state.origin, '#2563eb', 'Origin');
+      drawMarker(state.xRefPixel, '#7c3aed', 'X Ref');
+      drawMarker(state.yRefPixel, '#0d9488', 'Y Ref');
+
+      state.points.forEach((point, index) => {
+        drawPoint(point.pixelX, point.pixelY, '#dc2626', index + 1);
+      });
+
+      updateCalibrationBadge();
+    }
+
+    function drawMarker(position, color, label) {
+      if (!position) return;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.fillStyle = '#111827';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(label, position.x + 10, position.y - 10);
+    }
+
+    function drawPoint(x, y, color, n) {
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.fillStyle = '#111827';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(String(n), x + 8, y + 3);
+    }
+
+    function pixelToData(pixelX, pixelY) {
+      if (!isCalibrated()) return { x: null, y: null };
+
+      const dxPixels = state.xRefPixel.x - state.origin.x;
+      const dyPixels = state.origin.y - state.yRefPixel.y;
+
+      if (dxPixels === 0 || dyPixels === 0) {
+        return { x: null, y: null };
+      }
+
+      const x = ((pixelX - state.origin.x) / dxPixels) * state.xRefValue;
+      const y = ((state.origin.y - pixelY) / dyPixels) * state.yRefValue;
+      return { x, y };
+    }
+
+    function updatePointsTable() {
+      pointsBody.innerHTML = '';
+
+      state.points.forEach((point, idx) => {
+        const tr = document.createElement('tr');
+        const dataX = point.dataX == null ? '—' : point.dataX.toFixed(3);
+        const dataY = point.dataY == null ? '—' : point.dataY.toFixed(3);
+
+        tr.innerHTML = `
+          <td>${idx + 1}</td>
+          <td class="mono">(${Math.round(point.pixelX)}, ${Math.round(point.pixelY)})</td>
+          <td class="mono">(${dataX}, ${dataY})</td>
+          <td><button class="danger" data-remove="${idx}">Remove</button></td>
+        `;
+        pointsBody.appendChild(tr);
+      });
+
+      quickStats.textContent = `Points: ${state.points.length}`;
+
+      pointsBody.querySelectorAll('button[data-remove]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const index = Number(btn.getAttribute('data-remove'));
+          state.points.splice(index, 1);
+          updatePointsTable();
+          drawCanvas();
+        });
+      });
+    }
+
+    function updateCalibrationBadge() {
+      if (isCalibrated()) {
+        calibrationBadge.textContent = 'Calibrated';
+        calibrationBadge.style.background = '#059669';
+      } else {
+        calibrationBadge.textContent = 'Uncalibrated';
+        calibrationBadge.style.background = '#6b7280';
+      }
+    }
+
+    function resetCalibration() {
+      state.origin = null;
+      state.xRefPixel = null;
+      state.yRefPixel = null;
+      drawCanvas();
+      setStatus('Calibration has been reset. Set origin and axis references again.');
+    }
+
+    function handleCanvasClick(event) {
+      if (!state.image) {
+        setStatus('Please upload a scatterplot image first.');
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+
+      state.xRefValue = Number(xRefValueInput.value) || 0;
+      state.yRefValue = Number(yRefValueInput.value) || 0;
+
+      const mode = modeSelect.value;
+
+      if (mode === 'origin') {
+        state.origin = { x, y };
+        setStatus(`Origin set at pixel (${Math.round(x)}, ${Math.round(y)}).`);
+      } else if (mode === 'xmax') {
+        state.xRefPixel = { x, y };
+        setStatus(`X-axis reference set at pixel (${Math.round(x)}, ${Math.round(y)}).`);
+      } else if (mode === 'ymax') {
+        state.yRefPixel = { x, y };
+        setStatus(`Y-axis reference set at pixel (${Math.round(x)}, ${Math.round(y)}).`);
+      } else {
+        const data = pixelToData(x, y);
+        state.points.push({
+          pixelX: x,
+          pixelY: y,
+          dataX: data.x,
+          dataY: data.y
+        });
+        setStatus(`Point captured at pixel (${Math.round(x)}, ${Math.round(y)}).`);
+        updatePointsTable();
+      }
+
+      drawCanvas();
+      updatePointsTable();
+    }
+
+    function exportCsv() {
+      if (state.points.length === 0) {
+        setStatus('No points to export yet.');
+        return;
+      }
+
+      const header = ['index', 'pixel_x', 'pixel_y', 'data_x', 'data_y'];
+      const rows = state.points.map((p, i) => [
+        i + 1,
+        p.pixelX.toFixed(2),
+        p.pixelY.toFixed(2),
+        p.dataX == null ? '' : p.dataX.toFixed(6),
+        p.dataY == null ? '' : p.dataY.toFixed(6)
+      ]);
+
+      const csv = [header, ...rows].map((r) => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'scatterplot_points.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatus('Exported CSV.');
+    }
+
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        state.image = img;
+        const maxWidth = 900;
+        const maxHeight = 580;
+        const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+        canvas.width = Math.max(300, Math.round(img.width * scale));
+        canvas.height = Math.max(220, Math.round(img.height * scale));
+
+        state.points = [];
+        resetCalibration();
+        updatePointsTable();
+        setStatus(`Image loaded (${img.width}x${img.height}). Calibrate axes to map pixel clicks to data values.`);
+      };
+
+      img.onerror = () => setStatus('Could not load that image. Please try another file.');
+      img.src = URL.createObjectURL(file);
+    });
+
+    canvas.addEventListener('click', handleCanvasClick);
+    undoBtn.addEventListener('click', () => {
+      state.points.pop();
+      updatePointsTable();
+      drawCanvas();
+      setStatus('Removed last point.');
+    });
+    clearPointsBtn.addEventListener('click', () => {
+      state.points = [];
+      updatePointsTable();
+      drawCanvas();
+      setStatus('Cleared all captured points.');
+    });
+    resetCalBtn.addEventListener('click', resetCalibration);
+    exportBtn.addEventListener('click', exportCsv);
+
+    updatePointsTable();
+    drawCanvas();
+  </script>
+</body>
+</html>
