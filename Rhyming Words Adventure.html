@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rhyming Words Adventure</title>
+  <style>
+    :root {
+      --bg: #f0f9ff;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --accent: #f59e0b;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #bfdbfe;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Nunito", "Segoe UI", Tahoma, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      background: radial-gradient(circle at top, #dbeafe 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+
+    .widget {
+      width: min(920px, 100%);
+      background: var(--card);
+      border: 4px solid var(--border);
+      border-radius: 28px;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
+      padding: 26px;
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      color: var(--primary);
+      font-size: clamp(1.7rem, 3vw, 2.6rem);
+    }
+
+    .subtitle {
+      text-align: center;
+      margin: 8px 0 24px;
+      color: var(--muted);
+      font-size: 1.03rem;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(110px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .pill {
+      background: #eff6ff;
+      border: 2px dashed #93c5fd;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .pill small {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      letter-spacing: 0.2px;
+    }
+
+    .challenge-card {
+      background: #fffbeb;
+      border: 2px solid #fde68a;
+      border-radius: 20px;
+      text-align: center;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .challenge-word {
+      display: inline-block;
+      margin-top: 8px;
+      font-size: clamp(2.1rem, 6vw, 3.2rem);
+      font-weight: 900;
+      color: #b45309;
+      letter-spacing: 1px;
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .choice {
+      border: 2px solid #cbd5e1;
+      background: #f8fafc;
+      padding: 14px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.2s ease;
+    }
+
+    .choice:hover:not(:disabled) {
+      transform: translateY(-2px);
+      background: #e2e8f0;
+    }
+
+    .choice:disabled { cursor: default; opacity: 0.95; }
+
+    .choice.correct {
+      background: #dcfce7;
+      border-color: #22c55e;
+      color: #166534;
+    }
+
+    .choice.incorrect {
+      background: #fee2e2;
+      border-color: #ef4444;
+      color: #991b1b;
+    }
+
+    .feedback {
+      min-height: 36px;
+      text-align: center;
+      font-size: 1.08rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .feedback.success { color: var(--success); }
+    .feedback.error { color: var(--danger); }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 0.98rem;
+      font-weight: 800;
+      cursor: pointer;
+      color: white;
+      transition: transform 0.15s ease;
+    }
+
+    .btn:active { transform: translateY(2px); }
+
+    .btn-next { background: var(--primary); }
+    .btn-next:hover { background: #1d4ed8; }
+
+    .btn-reset { background: var(--accent); }
+    .btn-reset:hover { background: #d97706; }
+
+    .footer-note {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 0.92rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" role="application" aria-label="Rhyming words practice widget">
+    <h1>🎵 Rhyming Words Adventure</h1>
+    <p class="subtitle">Pick the word that rhymes with the challenge word. Keep your streak going!</p>
+
+    <section class="scoreboard" aria-live="polite">
+      <div class="pill"><small>Score</small><span id="score">0</span></div>
+      <div class="pill"><small>Streak</small><span id="streak">0</span></div>
+      <div class="pill"><small>Round</small><span id="round">1</span></div>
+    </section>
+
+    <section class="challenge-card">
+      <div>Find a rhyme for:</div>
+      <span id="targetWord" class="challenge-word">cat</span>
+    </section>
+
+    <section id="choices" class="choices" aria-label="Word choices"></section>
+
+    <p id="feedback" class="feedback" aria-live="assertive">Choose an answer to start.</p>
+
+    <div class="controls">
+      <button id="nextButton" class="btn btn-next" type="button">Next Word</button>
+      <button id="resetButton" class="btn btn-reset" type="button">Reset Game</button>
+    </div>
+
+    <p class="footer-note">Tip: Say the words out loud to hear the matching ending sounds.</p>
+  </main>
+
+  <script>
+    const wordFamilies = [
+      { target: "cat", rhyme: "hat", distractors: ["dog", "sun", "pen"] },
+      { target: "cake", rhyme: "snake", distractors: ["book", "ball", "tree"] },
+      { target: "star", rhyme: "car", distractors: ["fish", "apple", "leaf"] },
+      { target: "light", rhyme: "kite", distractors: ["frog", "drum", "sock"] },
+      { target: "moon", rhyme: "spoon", distractors: ["chair", "bear", "jam"] },
+      { target: "boat", rhyme: "goat", distractors: ["milk", "rain", "shoe"] },
+      { target: "bee", rhyme: "tree", distractors: ["cup", "clock", "hand"] },
+      { target: "play", rhyme: "day", distractors: ["bird", "rock", "wind"] },
+      { target: "train", rhyme: "rain", distractors: ["nose", "cat", "jar"] },
+      { target: "blue", rhyme: "shoe", distractors: ["grass", "toy", "fan"] }
+    ];
+
+    const scoreEl = document.getElementById("score");
+    const streakEl = document.getElementById("streak");
+    const roundEl = document.getElementById("round");
+    const targetWordEl = document.getElementById("targetWord");
+    const choicesEl = document.getElementById("choices");
+    const feedbackEl = document.getElementById("feedback");
+    const nextButton = document.getElementById("nextButton");
+    const resetButton = document.getElementById("resetButton");
+
+    let round = 1;
+    let score = 0;
+    let streak = 0;
+    let currentSet = null;
+    let answered = false;
+
+    const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+
+    function updateStats() {
+      scoreEl.textContent = score;
+      streakEl.textContent = streak;
+      roundEl.textContent = round;
+    }
+
+    function renderRound() {
+      answered = false;
+      feedbackEl.textContent = "Choose the word that rhymes.";
+      feedbackEl.className = "feedback";
+
+      currentSet = wordFamilies[Math.floor(Math.random() * wordFamilies.length)];
+      targetWordEl.textContent = currentSet.target;
+
+      const options = shuffle([currentSet.rhyme, ...currentSet.distractors]).slice(0, 4);
+      choicesEl.innerHTML = "";
+
+      options.forEach((word) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice";
+        button.textContent = word;
+        button.addEventListener("click", () => checkAnswer(button, word));
+        choicesEl.appendChild(button);
+      });
+
+      Array.from(choicesEl.children).forEach((button) => {
+        button.disabled = false;
+        button.classList.remove("correct", "incorrect");
+      });
+    }
+
+    function checkAnswer(button, selectedWord) {
+      if (answered) return;
+      answered = true;
+
+      const buttons = Array.from(choicesEl.children);
+      buttons.forEach((btn) => (btn.disabled = true));
+
+      if (selectedWord === currentSet.rhyme) {
+        button.classList.add("correct");
+        score += 10;
+        streak += 1;
+        feedbackEl.textContent = `Great job! ${currentSet.target} rhymes with ${currentSet.rhyme}.`;
+        feedbackEl.className = "feedback success";
+      } else {
+        button.classList.add("incorrect");
+        const correctButton = buttons.find((btn) => btn.textContent === currentSet.rhyme);
+        if (correctButton) correctButton.classList.add("correct");
+        streak = 0;
+        feedbackEl.textContent = `Nice try! ${currentSet.rhyme} rhymes with ${currentSet.target}.`;
+        feedbackEl.className = "feedback error";
+      }
+
+      updateStats();
+    }
+
+    nextButton.addEventListener("click", () => {
+      round += 1;
+      updateStats();
+      renderRound();
+    });
+
+    resetButton.addEventListener("click", () => {
+      round = 1;
+      score = 0;
+      streak = 0;
+      updateStats();
+      renderRound();
+    });
+
+    updateStats();
+    renderRound();
+  </script>
+</body>
+</html>
