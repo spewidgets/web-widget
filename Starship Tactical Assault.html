@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Starship Tactical Assault</title>
+  <style>
+    :root {
+      --bg: #050a1f;
+      --panel: rgba(9, 17, 48, 0.9);
+      --hud: #78f6ff;
+      --warning: #ff7b72;
+      --ok: #7ee787;
+      --accent: #8b9aff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Inter, Segoe UI, Tahoma, sans-serif;
+      color: #e6edff;
+      background:
+        radial-gradient(circle at 20% 10%, #1b2e6a 0%, transparent 30%),
+        radial-gradient(circle at 80% 90%, #242a5f 0%, transparent 35%),
+        #020512;
+      padding: 16px;
+    }
+
+    .frame {
+      width: min(1100px, 100%);
+      background: linear-gradient(180deg, #0a1235 0%, #070d26 100%);
+      border: 1px solid #2f3f77;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+    }
+
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #2d3a6c;
+      background: #070d25;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--hud);
+      letter-spacing: 0.03em;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      color: #a8b2d8;
+      font-size: 0.9rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #020816;
+      border-right: 1px solid #2d3a6c;
+      image-rendering: crisp-edges;
+    }
+
+    aside {
+      background: var(--panel);
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      gap: 12px;
+    }
+
+    .hud-card {
+      border: 1px solid #2b3b70;
+      background: rgba(8, 14, 36, 0.85);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .hud-card h2 {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--hud);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .meter {
+      height: 11px;
+      border-radius: 99px;
+      background: #1a2347;
+      overflow: hidden;
+      border: 1px solid #36477f;
+      margin-bottom: 8px;
+    }
+
+    .meter > span {
+      display: block;
+      height: 100%;
+      width: 0;
+      transition: width 0.2s linear;
+      background: linear-gradient(90deg, #4bf0ff, #8f9dff);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.86rem;
+      color: #ccd6ff;
+      margin-bottom: 4px;
+    }
+
+    .controls {
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #c8d3ff;
+    }
+
+    .event-log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.79rem;
+      line-height: 1.35;
+      max-height: 180px;
+      overflow-y: auto;
+      color: #b8c4f6;
+      white-space: pre-line;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid #3f5298;
+      background: #1b295e;
+      color: #e9eeff;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 8px 10px;
+      font-weight: 600;
+    }
+
+    button:hover { filter: brightness(1.1); }
+
+    .mission {
+      color: var(--ok);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .danger { color: var(--warning); }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      canvas { border-right: none; border-bottom: 1px solid #2d3a6c; }
+    }
+  </style>
+</head>
+<body>
+  <main class="frame">
+    <header>
+      <h1>Starship Tactical Assault</h1>
+      <p>Arcade-style starship combat inspired by tactical skirmish space battles.</p>
+    </header>
+
+    <section class="layout">
+      <canvas id="battlefield" width="860" height="560" aria-label="Battlefield"></canvas>
+
+      <aside>
+        <section class="hud-card">
+          <h2>USS Valor</h2>
+          <div class="row"><span>Hull</span><strong id="hullValue">100%</strong></div>
+          <div class="meter"><span id="hullMeter"></span></div>
+          <div class="row"><span>Shields</span><strong id="shieldValue">100%</strong></div>
+          <div class="meter"><span id="shieldMeter"></span></div>
+          <div class="row"><span>Energy</span><strong id="energyValue">100</strong></div>
+          <div class="meter"><span id="energyMeter"></span></div>
+        </section>
+
+        <section class="hud-card">
+          <h2>Mission</h2>
+          <div id="missionText" class="mission">Destroy all raiders.</div>
+          <div class="row"><span>Raiders Remaining</span><strong id="enemyCount">0</strong></div>
+          <div class="row"><span>Torpedoes</span><strong id="torpedoCount">12</strong></div>
+          <div class="row"><span>Score</span><strong id="scoreValue">0</strong></div>
+        </section>
+
+        <section class="hud-card controls">
+          <h2>Command Controls</h2>
+          <div>W / S: Thrust forward / reverse</div>
+          <div>A / D: Rotate ship</div>
+          <div>Space: Fire phasers</div>
+          <div>T: Launch photon torpedo</div>
+          <div>Shift: Raise shield boost (drains energy)</div>
+        </section>
+
+        <section class="hud-card event-log" id="eventLog"></section>
+
+        <div class="buttons">
+          <button id="newMission">New Mission</button>
+          <button id="pauseButton">Pause</button>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('battlefield');
+    const ctx = canvas.getContext('2d');
+
+    const ui = {
+      hullValue: document.getElementById('hullValue'),
+      shieldValue: document.getElementById('shieldValue'),
+      energyValue: document.getElementById('energyValue'),
+      hullMeter: document.getElementById('hullMeter'),
+      shieldMeter: document.getElementById('shieldMeter'),
+      energyMeter: document.getElementById('energyMeter'),
+      enemyCount: document.getElementById('enemyCount'),
+      torpedoCount: document.getElementById('torpedoCount'),
+      scoreValue: document.getElementById('scoreValue'),
+      missionText: document.getElementById('missionText'),
+      eventLog: document.getElementById('eventLog'),
+      pauseButton: document.getElementById('pauseButton'),
+      newMission: document.getElementById('newMission')
+    };
+
+    const keys = new Set();
+    const stars = Array.from({ length: 140 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.8 + 0.2,
+      twinkle: Math.random() * 0.8 + 0.2
+    }));
+
+    let state = null;
+    let lastTime = performance.now();
+    let paused = false;
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function logEvent(text) {
+      const now = new Date();
+      const stamp = now.toLocaleTimeString([], { hour12: false });
+      ui.eventLog.textContent = `[${stamp}] ${text}\n` + ui.eventLog.textContent;
+      ui.eventLog.textContent = ui.eventLog.textContent.split('\n').slice(0, 14).join('\n');
+    }
+
+    function createShip() {
+      return {
+        x: canvas.width * 0.5,
+        y: canvas.height * 0.52,
+        vx: 0,
+        vy: 0,
+        angle: -Math.PI / 2,
+        hull: 100,
+        shields: 100,
+        energy: 100,
+        torpedoes: 12,
+        cooldown: 0,
+        torpedoCooldown: 0,
+        boostShield: false,
+        invuln: 0
+      };
+    }
+
+    function createEnemy(index) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const spawnX = side < 0 ? Math.random() * 120 + 20 : canvas.width - (Math.random() * 120 + 20);
+      return {
+        x: spawnX,
+        y: Math.random() * (canvas.height - 120) + 60,
+        vx: 0,
+        vy: 0,
+        angle: side < 0 ? 0 : Math.PI,
+        hull: 44,
+        cooldown: Math.random() * 0.8,
+        drift: Math.random() * Math.PI * 2,
+        targetOffset: Math.random() * 70 + 30
+      };
+    }
+
+    function resetMission() {
+      const enemies = Array.from({ length: 6 }, (_, i) => createEnemy(i));
+      state = {
+        ship: createShip(),
+        enemies,
+        projectiles: [],
+        particles: [],
+        score: 0,
+        over: false,
+        victory: false,
+        messageCooldown: 0
+      };
+      paused = false;
+      ui.pauseButton.textContent = 'Pause';
+      ui.missionText.textContent = 'Destroy all raiders.';
+      ui.missionText.classList.remove('danger');
+      logEvent('Mission initialized. Hostiles detected.');
+      updateHud();
+    }
+
+    function fireProjectile(owner, speed, damage, color, radius = 2, life = 1.1) {
+      const origin = owner === 'ship' ? state.ship : owner;
+      const forward = owner === 'ship' ? state.ship.angle : owner.angle;
+      const offset = owner === 'ship' ? 18 : 14;
+      state.projectiles.push({
+        owner: owner === 'ship' ? 'ship' : 'enemy',
+        x: origin.x + Math.cos(forward) * offset,
+        y: origin.y + Math.sin(forward) * offset,
+        vx: Math.cos(forward) * speed + (owner === 'ship' ? state.ship.vx : owner.vx),
+        vy: Math.sin(forward) * speed + (owner === 'ship' ? state.ship.vy : owner.vy),
+        damage,
+        color,
+        radius,
+        life
+      });
+    }
+
+    function spawnExplosion(x, y, color, amount = 12) {
+      for (let i = 0; i < amount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 130 + 50;
+        state.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: Math.random() * 0.5 + 0.35,
+          color,
+          size: Math.random() * 2.5 + 1
+        });
+      }
+    }
+
+    function damageShip(amount) {
+      const ship = state.ship;
+      if (ship.invuln > 0) {
+        return;
+      }
+      let remaining = amount;
+      if (ship.shields > 0) {
+        const shieldAbsorb = Math.min(ship.shields, remaining);
+        ship.shields -= shieldAbsorb;
+        remaining -= shieldAbsorb;
+      }
+      if (remaining > 0) {
+        ship.hull -= remaining;
+      }
+      ship.invuln = 0.2;
+      spawnExplosion(ship.x, ship.y, '#ffc46b', 9);
+
+      if (ship.hull <= 0 && !state.over) {
+        ship.hull = 0;
+        state.over = true;
+        state.victory = false;
+        ui.missionText.textContent = 'Mission failed. USS Valor destroyed.';
+        ui.missionText.classList.add('danger');
+        logEvent('Critical damage. Valor lost.');
+      }
+    }
+
+    function updateShip(dt) {
+      const ship = state.ship;
+      if (state.over) {
+        ship.vx *= 0.99;
+        ship.vy *= 0.99;
+      } else {
+        if (keys.has('KeyA')) ship.angle -= 2.6 * dt;
+        if (keys.has('KeyD')) ship.angle += 2.6 * dt;
+
+        const thrust = keys.has('KeyW') ? 210 : keys.has('KeyS') ? -120 : 0;
+        ship.vx += Math.cos(ship.angle) * thrust * dt;
+        ship.vy += Math.sin(ship.angle) * thrust * dt;
+
+        ship.boostShield = keys.has('ShiftLeft') || keys.has('ShiftRight');
+        if (ship.boostShield && ship.energy > 0) {
+          ship.shields = clamp(ship.shields + 18 * dt, 0, 125);
+          ship.energy = clamp(ship.energy - 22 * dt, 0, 100);
+        } else {
+          ship.shields = clamp(ship.shields + 5 * dt, 0, 100);
+          ship.energy = clamp(ship.energy + 14 * dt, 0, 100);
+        }
+
+        ship.cooldown -= dt;
+        ship.torpedoCooldown -= dt;
+
+        if (keys.has('Space') && ship.cooldown <= 0 && ship.energy >= 5) {
+          ship.energy -= 5;
+          ship.cooldown = 0.12;
+          fireProjectile('ship', 420, 8, '#78f6ff', 2.2, 1.0);
+        }
+
+        if (keys.has('KeyT') && ship.torpedoCooldown <= 0 && ship.torpedoes > 0) {
+          ship.torpedoes -= 1;
+          ship.torpedoCooldown = 0.8;
+          fireProjectile('ship', 330, 26, '#ffd67a', 3.2, 1.4);
+          logEvent('Photon torpedo launched.');
+        }
+      }
+
+      ship.vx *= 0.992;
+      ship.vy *= 0.992;
+      ship.x = (ship.x + ship.vx * dt + canvas.width) % canvas.width;
+      ship.y = (ship.y + ship.vy * dt + canvas.height) % canvas.height;
+      ship.invuln = Math.max(0, ship.invuln - dt);
+    }
+
+    function updateEnemies(dt) {
+      const ship = state.ship;
+      for (const enemy of state.enemies) {
+        const dx = ship.x - enemy.x;
+        const dy = ship.y - enemy.y;
+        const distance = Math.hypot(dx, dy) || 0.001;
+        const desiredAngle = Math.atan2(dy, dx);
+        const angleDelta = Math.atan2(Math.sin(desiredAngle - enemy.angle), Math.cos(desiredAngle - enemy.angle));
+        enemy.angle += clamp(angleDelta, -1.7 * dt, 1.7 * dt);
+
+        const orbitRange = 170 + Math.sin(performance.now() * 0.001 + enemy.drift) * enemy.targetOffset;
+        const accel = distance > orbitRange ? 130 : -80;
+        enemy.vx += Math.cos(enemy.angle) * accel * dt;
+        enemy.vy += Math.sin(enemy.angle) * accel * dt;
+
+        enemy.vx *= 0.986;
+        enemy.vy *= 0.986;
+        enemy.x = (enemy.x + enemy.vx * dt + canvas.width) % canvas.width;
+        enemy.y = (enemy.y + enemy.vy * dt + canvas.height) % canvas.height;
+
+        enemy.cooldown -= dt;
+        if (!state.over && enemy.cooldown <= 0 && distance < 360) {
+          enemy.cooldown = Math.random() * 0.8 + 0.7;
+          fireProjectile(enemy, 250, 10, '#ff7481', 2.4, 1.4);
+        }
+      }
+    }
+
+    function updateProjectiles(dt) {
+      const ship = state.ship;
+      state.projectiles = state.projectiles.filter((p) => {
+        p.life -= dt;
+        p.x = (p.x + p.vx * dt + canvas.width) % canvas.width;
+        p.y = (p.y + p.vy * dt + canvas.height) % canvas.height;
+        if (p.life <= 0) return false;
+
+        if (p.owner === 'enemy' && !state.over) {
+          const d = Math.hypot(p.x - ship.x, p.y - ship.y);
+          if (d < 15) {
+            damageShip(p.damage);
+            return false;
+          }
+        }
+
+        if (p.owner === 'ship') {
+          for (const enemy of state.enemies) {
+            const d = Math.hypot(p.x - enemy.x, p.y - enemy.y);
+            if (d < 14) {
+              enemy.hull -= p.damage;
+              spawnExplosion(enemy.x, enemy.y, p.color, 6);
+              if (enemy.hull <= 0) {
+                state.score += 250;
+                spawnExplosion(enemy.x, enemy.y, '#ffd67a', 20);
+                logEvent('Raider destroyed.');
+              }
+              return false;
+            }
+          }
+        }
+
+        return true;
+      });
+
+      state.enemies = state.enemies.filter((enemy) => enemy.hull > 0);
+      if (!state.over && state.enemies.length === 0) {
+        state.over = true;
+        state.victory = true;
+        state.score += 1000;
+        ui.missionText.textContent = 'Mission accomplished. Sector secured.';
+        ui.missionText.classList.remove('danger');
+        logEvent('All hostiles neutralized. Good hunting, captain.');
+      }
+    }
+
+    function updateParticles(dt) {
+      state.particles = state.particles.filter((p) => {
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        return p.life > 0;
+      });
+    }
+
+    function updateHud() {
+      const ship = state.ship;
+      ui.hullValue.textContent = `${Math.round(ship.hull)}%`;
+      ui.shieldValue.textContent = `${Math.round(ship.shields)}%`;
+      ui.energyValue.textContent = `${Math.round(ship.energy)}`;
+      ui.hullMeter.style.width = `${clamp(ship.hull, 0, 100)}%`;
+      ui.shieldMeter.style.width = `${clamp(ship.shields, 0, 125) / 1.25}%`;
+      ui.energyMeter.style.width = `${ship.energy}%`;
+      ui.enemyCount.textContent = String(state.enemies.length);
+      ui.torpedoCount.textContent = String(ship.torpedoes);
+      ui.scoreValue.textContent = String(state.score);
+    }
+
+    function drawShip(ship, enemy = false) {
+      ctx.save();
+      ctx.translate(ship.x, ship.y);
+      ctx.rotate(ship.angle);
+
+      if (!enemy && ship.boostShield && ship.energy > 0) {
+        ctx.strokeStyle = 'rgba(120, 246, 255, 0.65)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18 + Math.sin(performance.now() * 0.02) * 2.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = enemy ? '#b3476a' : '#8aa4ff';
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.lineTo(-10, 9);
+      ctx.lineTo(-6, 0);
+      ctx.lineTo(-10, -9);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = enemy ? '#ffd3e2' : '#d6e7ff';
+      ctx.fillRect(2, -2, 9, 4);
+
+      ctx.restore();
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = '#020816';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      for (const s of stars) {
+        const alpha = 0.3 + Math.sin(performance.now() * 0.002 * s.twinkle + s.x) * 0.25;
+        ctx.fillStyle = `rgba(200,220,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function draw() {
+      drawBackground();
+
+      for (const p of state.particles) {
+        ctx.globalAlpha = Math.max(0, p.life * 1.6);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      for (const p of state.projectiles) {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const enemy of state.enemies) drawShip(enemy, true);
+
+      const shipAlpha = state.ship.invuln > 0 ? 0.5 + Math.sin(performance.now() * 0.08) * 0.4 : 1;
+      ctx.globalAlpha = shipAlpha;
+      drawShip(state.ship, false);
+      ctx.globalAlpha = 1;
+
+      if (paused) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#dce6ff';
+        ctx.font = '700 28px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+      }
+
+      if (state.over) {
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = state.victory ? '#7ee787' : '#ff7b72';
+        ctx.font = '700 26px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText(state.victory ? 'MISSION COMPLETE' : 'MISSION FAILED', canvas.width / 2, canvas.height / 2 - 10);
+        ctx.fillStyle = '#eaf1ff';
+        ctx.font = '500 18px Segoe UI';
+        ctx.fillText('Press New Mission to redeploy.', canvas.width / 2, canvas.height / 2 + 24);
+      }
+    }
+
+    function tick(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.035);
+      lastTime = now;
+
+      if (!paused) {
+        updateShip(dt);
+        updateEnemies(dt);
+        updateProjectiles(dt);
+        updateParticles(dt);
+        updateHud();
+      }
+
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyT', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+        e.preventDefault();
+      }
+      keys.add(e.code);
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys.delete(e.code);
+    });
+
+    ui.pauseButton.addEventListener('click', () => {
+      paused = !paused;
+      ui.pauseButton.textContent = paused ? 'Resume' : 'Pause';
+    });
+
+    ui.newMission.addEventListener('click', () => {
+      resetMission();
+    });
+
+    resetMission();
+    requestAnimationFrame((t) => {
+      lastTime = t;
+      requestAnimationFrame(tick);
+    });
+  </script>
+</body>
+</html>
