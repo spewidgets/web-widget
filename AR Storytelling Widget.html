@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Storytelling Classroom Widget</title>
+  <style>
+    :root {
+      --sky: #bfe9ff;
+      --ground: #a6e3a1;
+      --panel: #ffffff;
+      --accent: #ff7a59;
+      --dark: #2a2a2a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Nunito", "Segoe UI", sans-serif;
+      background: #f7f7fb;
+      color: var(--dark);
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .widget {
+      width: min(1100px, 100%);
+      background: var(--panel);
+      border-radius: 16px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(300px, 420px);
+    }
+
+    header {
+      grid-column: 1 / -1;
+      background: linear-gradient(120deg, #8cc6ff, #fdbbaf);
+      padding: 24px 28px;
+      color: #fff;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 1.6rem;
+    }
+
+    header p {
+      margin: 0;
+      opacity: 0.9;
+    }
+
+    .stage {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .camera-view {
+      position: relative;
+      height: 360px;
+      border-radius: 16px;
+      border: 3px solid #e2e2ef;
+      overflow: hidden;
+      background: linear-gradient(var(--sky) 60%, var(--ground) 60%);
+    }
+
+    .marker-grid {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 8px;
+      padding: 12px;
+      pointer-events: none;
+    }
+
+    .marker {
+      border: 2px dashed rgba(255, 255, 255, 0.6);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+    }
+
+    .story-item {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.88);
+      border-radius: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+      cursor: grab;
+      user-select: none;
+      transition: transform 0.2s ease;
+    }
+
+    .story-item:active { cursor: grabbing; transform: scale(1.02); }
+
+    .story-item span { font-size: 1.6rem; }
+
+    .story-item small { font-weight: 700; font-size: 0.75rem; }
+
+    .scene-banner {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .control-panel {
+      padding: 24px;
+      border-left: 1px solid #eee;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      background: #fafafe;
+    }
+
+    .panel-section {
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid #e7e7f2;
+      box-shadow: 0 6px 12px rgba(34, 34, 68, 0.06);
+    }
+
+    .panel-section h3 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+      color: #3a3a70;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    select, textarea, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #d7d7e8;
+      font-size: 0.95rem;
+      padding: 10px 12px;
+      font-family: inherit;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .pill-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      border: 1px solid #ead7d4;
+      background: #fff7f4;
+      color: #a04a32;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .pill.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 8px 16px rgba(255, 122, 89, 0.3);
+    }
+
+    .pill:hover { transform: translateY(-1px); }
+
+    .story-steps {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.9rem;
+    }
+
+    .cta {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .cta:hover { transform: translateY(-1px); }
+
+    .helper {
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .widget { grid-template-columns: 1fr; }
+      .control-panel { border-left: none; border-top: 1px solid #eee; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget">
+    <header>
+      <h1>AR Storytelling Studio</h1>
+      <p>Use playful augmented reality overlays to guide preschoolers through an interactive story.</p>
+    </header>
+
+    <section class="stage">
+      <div class="camera-view" id="cameraView" aria-label="Augmented reality stage">
+        <div class="scene-banner" id="sceneLabel">Scene: Sunny Garden</div>
+        <div class="story-item" style="top: 70px; left: 60px" data-name="Luna the Bunny">
+          <span>🐰</span>
+          <small>Luna</small>
+        </div>
+        <div class="story-item" style="top: 210px; left: 200px" data-name="Buddy the Bird">
+          <span>🐦</span>
+          <small>Buddy</small>
+        </div>
+        <div class="story-item" style="top: 130px; right: 80px" data-name="Magical Sparkles">
+          <span>✨</span>
+          <small>Magic</small>
+        </div>
+        <div class="marker-grid" aria-hidden="true">
+          <div class="marker">Marker 1</div>
+          <div class="marker">Marker 2</div>
+          <div class="marker">Marker 3</div>
+          <div class="marker">Marker 4</div>
+          <div class="marker">Marker 5</div>
+          <div class="marker">Marker 6</div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3>Story Beat of the Moment</h3>
+        <p id="beatText">Luna spots a glowing seed. She wonders what it will become.</p>
+        <button class="cta" id="nextBeat">Next Story Beat</button>
+        <p class="helper">Tap “Next” to pace the story with the class.</p>
+      </div>
+    </section>
+
+    <aside class="control-panel">
+      <div class="panel-section">
+        <h3>Choose the AR Scene</h3>
+        <label for="sceneSelect">Background setting</label>
+        <select id="sceneSelect">
+          <option value="garden" selected>Sunny Garden</option>
+          <option value="ocean">Bubble Ocean</option>
+          <option value="forest">Whispering Forest</option>
+          <option value="space">Starry Sky</option>
+        </select>
+        <p class="helper">Switch scenes to match the story chapter.</p>
+      </div>
+
+      <div class="panel-section">
+        <h3>Drop in Characters & Props</h3>
+        <div class="pill-group" id="itemPalette">
+          <button class="pill active" data-icon="🐰" data-label="Luna">🐰 Bunny</button>
+          <button class="pill active" data-icon="🐦" data-label="Buddy">🐦 Bird</button>
+          <button class="pill" data-icon="🦊" data-label="Milo">🦊 Fox</button>
+          <button class="pill" data-icon="🌈" data-label="Rainbow">🌈 Rainbow</button>
+          <button class="pill" data-icon="🌻" data-label="Sunflower">🌻 Sunflower</button>
+          <button class="pill" data-icon="🍄" data-label="Mushroom">🍄 Mushroom</button>
+        </div>
+        <p class="helper">Tap a button to add or remove an AR sticker.</p>
+      </div>
+
+      <div class="panel-section">
+        <h3>Teacher Narration</h3>
+        <label for="narration">Custom narration prompt</label>
+        <textarea id="narration">Luna says, "Let’s follow the sparkles to the giggling tree!"</textarea>
+        <button class="cta" id="playNarration">Play Narration</button>
+        <p class="helper">Uses your device voice to model expressive storytelling.</p>
+      </div>
+
+      <div class="panel-section">
+        <h3>Suggested Classroom Prompts</h3>
+        <ol class="story-steps">
+          <li>Ask learners to point to the glowing markers.</li>
+          <li>Have them move the character to a new spot.</li>
+          <li>Invite everyone to act out the sound effect.</li>
+          <li>Let a helper choose the next scene.</li>
+        </ol>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const sceneSelect = document.getElementById("sceneSelect");
+    const sceneLabel = document.getElementById("sceneLabel");
+    const cameraView = document.getElementById("cameraView");
+    const itemPalette = document.getElementById("itemPalette");
+    const narration = document.getElementById("narration");
+    const playNarration = document.getElementById("playNarration");
+    const beatText = document.getElementById("beatText");
+    const nextBeat = document.getElementById("nextBeat");
+
+    const beats = [
+      "Luna spots a glowing seed. She wonders what it will become.",
+      "Buddy flutters in and offers to guide Luna through the garden.",
+      "They discover a hidden tunnel of flowers that hum softly.",
+      "A rainbow appears! The friends dance and count the colors together.",
+      "The magical seed grows into a giggling tree that says hello."
+    ];
+    let beatIndex = 0;
+
+    const sceneStyles = {
+      garden: {
+        label: "Sunny Garden",
+        background: "linear-gradient(#bfe9ff 60%, #a6e3a1 60%)"
+      },
+      ocean: {
+        label: "Bubble Ocean",
+        background: "linear-gradient(#b7f5ff 55%, #5ac8fa 55%)"
+      },
+      forest: {
+        label: "Whispering Forest",
+        background: "linear-gradient(#d7f5c9 50%, #7cbf7c 50%)"
+      },
+      space: {
+        label: "Starry Sky",
+        background: "radial-gradient(circle at top, #2b3a67, #0b1026 65%)"
+      }
+    };
+
+    sceneSelect.addEventListener("change", () => {
+      const selected = sceneStyles[sceneSelect.value];
+      sceneLabel.textContent = `Scene: ${selected.label}`;
+      cameraView.style.background = selected.background;
+    });
+
+    itemPalette.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      button.classList.toggle("active");
+      const icon = button.dataset.icon;
+      const label = button.dataset.label;
+      const existing = cameraView.querySelector(`[data-name='${label}']`);
+
+      if (button.classList.contains("active")) {
+        if (existing) return;
+        const item = document.createElement("div");
+        item.className = "story-item";
+        item.dataset.name = label;
+        item.style.top = "140px";
+        item.style.left = `${100 + Math.random() * 180}px`;
+        item.innerHTML = `<span>${icon}</span><small>${label}</small>`;
+        cameraView.appendChild(item);
+        enableDrag(item);
+      } else if (existing) {
+        existing.remove();
+      }
+    });
+
+    const enableDrag = (item) => {
+      let offsetX = 0;
+      let offsetY = 0;
+      const onPointerMove = (event) => {
+        const rect = cameraView.getBoundingClientRect();
+        const x = Math.min(Math.max(event.clientX - rect.left - offsetX, 0), rect.width - item.offsetWidth);
+        const y = Math.min(Math.max(event.clientY - rect.top - offsetY, 0), rect.height - item.offsetHeight);
+        item.style.left = `${x}px`;
+        item.style.top = `${y}px`;
+      };
+
+      const onPointerUp = () => {
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerUp);
+      };
+
+      item.addEventListener("pointerdown", (event) => {
+        const rect = item.getBoundingClientRect();
+        offsetX = event.clientX - rect.left;
+        offsetY = event.clientY - rect.top;
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", onPointerUp);
+      });
+    };
+
+    document.querySelectorAll(".story-item").forEach(enableDrag);
+
+    nextBeat.addEventListener("click", () => {
+      beatIndex = (beatIndex + 1) % beats.length;
+      beatText.textContent = beats[beatIndex];
+    });
+
+    playNarration.addEventListener("click", () => {
+      if (!("speechSynthesis" in window)) {
+        alert("Speech synthesis is not supported in this browser.");
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(narration.value);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    });
+  </script>
+</body>
+</html>
