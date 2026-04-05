@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Starship Tactical Assault - Browser Prototype</title>
+  <style>
+    :root {
+      --bg: #020611;
+      --panel: #0b1733;
+      --line: #2f4f8a;
+      --text: #d7e4ff;
+      --accent: #53d3ff;
+      --warn: #ff7f73;
+      --good: #8cf88c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top, #10214a, var(--bg) 60%);
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .game-shell {
+      width: min(1100px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      background: #050d22;
+    }
+
+    .hud {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      background: linear-gradient(180deg, #0f2248, #081330);
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.95rem;
+    }
+
+    .meter {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .bar {
+      height: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #0c1a3d;
+      overflow: hidden;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      transition: width 120ms linear;
+    }
+
+    #shieldBar > span { background: linear-gradient(90deg, #2ca4ff, #8be8ff); }
+    #hullBar > span { background: linear-gradient(90deg, #f76b59, #ffad4d); }
+    #energyBar > span { background: linear-gradient(90deg, #56ff95, #c7ff8f); }
+
+    .right {
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16 / 9;
+      display: block;
+      background: radial-gradient(circle at center, #0c1a3a 0%, #020611 75%);
+      cursor: crosshair;
+    }
+
+    .footer {
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+      background: #081330;
+      font-size: 0.88rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: #123270;
+      color: var(--text);
+      border: 1px solid #3f69b4;
+      border-radius: 6px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+
+    .btn:hover { filter: brightness(1.1); }
+
+    @media (max-width: 900px) {
+      .hud { grid-template-columns: 1fr; }
+      .right { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell" aria-label="Starship tactical arena game">
+    <section class="hud">
+      <div class="meter">
+        <strong>USS Horizon Status</strong>
+        <label>Shields</label>
+        <div id="shieldBar" class="bar"><span></span></div>
+        <label>Hull</label>
+        <div id="hullBar" class="bar"><span></span></div>
+        <label>Weapon Energy</label>
+        <div id="energyBar" class="bar"><span></span></div>
+      </div>
+      <div>
+        <div><strong>Mission:</strong> Defend the relay station.</div>
+        <div><strong>Kills:</strong> <span id="kills">0</span></div>
+        <div><strong>Wave:</strong> <span id="wave">1</span></div>
+        <div><strong>Torpedoes:</strong> <span id="torps">18</span></div>
+      </div>
+      <div class="right">
+        <div><strong id="status">Engage enemy patrols.</strong></div>
+        <div>WASD/Arrow keys: Thrusters</div>
+        <div>Mouse: Aim phasers</div>
+        <div>Left Click: Phaser burst | Right Click: Torpedo</div>
+      </div>
+    </section>
+
+    <canvas id="game" width="1280" height="720"></canvas>
+
+    <section class="footer">
+      <div>
+        This is an original tactical space combat prototype inspired by classic top-down starship combat systems.
+      </div>
+      <button class="btn" id="restartBtn">Restart Mission</button>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const ui = {
+      shield: document.querySelector('#shieldBar span'),
+      hull: document.querySelector('#hullBar span'),
+      energy: document.querySelector('#energyBar span'),
+      kills: document.getElementById('kills'),
+      wave: document.getElementById('wave'),
+      torps: document.getElementById('torps'),
+      status: document.getElementById('status')
+    };
+
+    const world = { w: canvas.width, h: canvas.height };
+    const keys = new Set();
+    const particles = [];
+    const enemyShots = [];
+    const playerShots = [];
+    const torpedoes = [];
+    const enemies = [];
+    const drops = [];
+
+    let last = performance.now();
+    let gameOver = false;
+
+    const player = {
+      x: world.w * 0.35,
+      y: world.h * 0.55,
+      angle: 0,
+      vx: 0,
+      vy: 0,
+      maxSpeed: 270,
+      shields: 100,
+      hull: 100,
+      energy: 100,
+      torpAmmo: 18,
+      kills: 0,
+      invuln: 0,
+      wave: 1,
+      fireCooldown: 0,
+      torpCooldown: 0
+    };
+
+    function resetMission() {
+      Object.assign(player, {
+        x: world.w * 0.35,
+        y: world.h * 0.55,
+        angle: 0,
+        vx: 0,
+        vy: 0,
+        maxSpeed: 270,
+        shields: 100,
+        hull: 100,
+        energy: 100,
+        torpAmmo: 18,
+        kills: 0,
+        invuln: 0,
+        wave: 1,
+        fireCooldown: 0,
+        torpCooldown: 0
+      });
+      particles.length = 0;
+      enemyShots.length = 0;
+      playerShots.length = 0;
+      torpedoes.length = 0;
+      enemies.length = 0;
+      drops.length = 0;
+      spawnWave(1);
+      gameOver = false;
+      ui.status.textContent = 'Engage enemy patrols.';
+    }
+
+    function spawnWave(wave) {
+      const count = 3 + wave;
+      for (let i = 0; i < count; i++) {
+        const side = Math.floor(Math.random() * 4);
+        const edgeSpawn = [
+          [Math.random() * world.w, -30],
+          [world.w + 30, Math.random() * world.h],
+          [Math.random() * world.w, world.h + 30],
+          [-30, Math.random() * world.h]
+        ][side];
+
+        enemies.push({
+          x: edgeSpawn[0],
+          y: edgeSpawn[1],
+          vx: 0,
+          vy: 0,
+          angle: 0,
+          hp: 38 + wave * 8,
+          fire: Math.random() * 1.8,
+          speed: 85 + wave * 12,
+          type: Math.random() < 0.2 ? 'raider' : 'fighter'
+        });
+      }
+      ui.status.textContent = `Wave ${wave}: Hostile ships incoming.`;
+    }
+
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+    function shootPhaser() {
+      if (player.energy < 7 || player.fireCooldown > 0) return;
+      player.energy -= 7;
+      player.fireCooldown = 0.1;
+      playerShots.push({
+        x: player.x + Math.cos(player.angle) * 28,
+        y: player.y + Math.sin(player.angle) * 28,
+        vx: Math.cos(player.angle) * 700,
+        vy: Math.sin(player.angle) * 700,
+        life: 0.7,
+        dmg: 10
+      });
+    }
+
+    function launchTorpedo() {
+      if (player.torpAmmo <= 0 || player.torpCooldown > 0) return;
+      player.torpAmmo -= 1;
+      player.torpCooldown = 0.75;
+      torpedoes.push({
+        x: player.x + Math.cos(player.angle) * 30,
+        y: player.y + Math.sin(player.angle) * 30,
+        vx: Math.cos(player.angle) * 360,
+        vy: Math.sin(player.angle) * 360,
+        life: 2.8,
+        dmg: 34
+      });
+    }
+
+    function spawnExplosion(x, y, color = '#ffd16f', count = 20) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 30 + Math.random() * 210;
+        particles.push({
+          x, y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s,
+          life: 0.3 + Math.random() * 0.6,
+          size: 1 + Math.random() * 3,
+          color
+        });
+      }
+    }
+
+    function playerDamage(amount) {
+      if (player.invuln > 0 || gameOver) return;
+      player.invuln = 0.12;
+      if (player.shields > 0) {
+        player.shields -= amount;
+        if (player.shields < 0) {
+          player.hull += player.shields;
+          player.shields = 0;
+        }
+      } else {
+        player.hull -= amount;
+      }
+
+      spawnExplosion(player.x, player.y, '#8be8ff', 7);
+
+      if (player.hull <= 0) {
+        player.hull = 0;
+        gameOver = true;
+        ui.status.textContent = 'USS Horizon destroyed. Restart mission.';
+        spawnExplosion(player.x, player.y, '#ff7f73', 120);
+      }
+    }
+
+    function maybeDropLoot(x, y) {
+      if (Math.random() > 0.25) return;
+      const kind = Math.random() < 0.55 ? 'energy' : (Math.random() < 0.5 ? 'shield' : 'torpedo');
+      drops.push({ x, y, kind, life: 10 });
+    }
+
+    function update(dt) {
+      if (gameOver) {
+        particles.forEach((p) => {
+          p.life -= dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+        });
+        for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
+        draw();
+        return;
+      }
+
+      player.invuln = Math.max(0, player.invuln - dt);
+      player.fireCooldown = Math.max(0, player.fireCooldown - dt);
+      player.torpCooldown = Math.max(0, player.torpCooldown - dt);
+
+      const up = keys.has('w') || keys.has('arrowup');
+      const down = keys.has('s') || keys.has('arrowdown');
+      const left = keys.has('a') || keys.has('arrowleft');
+      const right = keys.has('d') || keys.has('arrowright');
+
+      const accel = 520;
+      const drag = 0.93;
+      const ax = (right - left) * accel;
+      const ay = (down - up) * accel;
+
+      player.vx = (player.vx + ax * dt) * drag;
+      player.vy = (player.vy + ay * dt) * drag;
+
+      const sp = Math.hypot(player.vx, player.vy);
+      if (sp > player.maxSpeed) {
+        const k = player.maxSpeed / sp;
+        player.vx *= k;
+        player.vy *= k;
+      }
+
+      player.x = clamp(player.x + player.vx * dt, 24, world.w - 24);
+      player.y = clamp(player.y + player.vy * dt, 24, world.h - 24);
+      player.energy = clamp(player.energy + dt * 11.5, 0, 100);
+      player.shields = clamp(player.shields + dt * 2.2, 0, 100);
+
+      for (const s of playerShots) {
+        s.life -= dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+      }
+
+      for (const t of torpedoes) {
+        t.life -= dt;
+        t.x += t.vx * dt;
+        t.y += t.vy * dt;
+      }
+
+      for (const b of enemyShots) {
+        b.life -= dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+      }
+
+      for (const e of enemies) {
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const d = Math.hypot(dx, dy) || 1;
+        e.angle = Math.atan2(dy, dx);
+        const desired = e.type === 'raider' ? 210 : 280;
+        const chase = d > desired ? 1 : -0.4;
+        e.vx += (dx / d) * e.speed * chase * dt;
+        e.vy += (dy / d) * e.speed * chase * dt;
+        e.vx *= 0.94;
+        e.vy *= 0.94;
+        e.x += e.vx * dt;
+        e.y += e.vy * dt;
+
+        e.fire -= dt;
+        if (e.fire <= 0 && d < 560) {
+          e.fire = 0.8 + Math.random() * 1.4;
+          const spread = (Math.random() - 0.5) * 0.14;
+          const a = e.angle + spread;
+          enemyShots.push({ x: e.x, y: e.y, vx: Math.cos(a) * 320, vy: Math.sin(a) * 320, life: 2.3, dmg: 8 + player.wave * 0.8 });
+        }
+      }
+
+      for (const p of particles) {
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+      }
+
+      for (const d of drops) d.life -= dt;
+
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+
+        for (let j = playerShots.length - 1; j >= 0; j--) {
+          const s = playerShots[j];
+          if (Math.hypot(e.x - s.x, e.y - s.y) < 20) {
+            e.hp -= s.dmg;
+            spawnExplosion(s.x, s.y, '#53d3ff', 8);
+            playerShots.splice(j, 1);
+          }
+        }
+
+        for (let j = torpedoes.length - 1; j >= 0; j--) {
+          const t = torpedoes[j];
+          if (Math.hypot(e.x - t.x, e.y - t.y) < 28) {
+            e.hp -= t.dmg;
+            spawnExplosion(t.x, t.y, '#ffad4d', 30);
+            torpedoes.splice(j, 1);
+          }
+        }
+
+        if (Math.hypot(e.x - player.x, e.y - player.y) < 30) {
+          playerDamage(22);
+          e.hp = 0;
+        }
+
+        if (e.hp <= 0) {
+          spawnExplosion(e.x, e.y, '#ff7f73', 32);
+          maybeDropLoot(e.x, e.y);
+          enemies.splice(i, 1);
+          player.kills += 1;
+        }
+      }
+
+      for (let i = enemyShots.length - 1; i >= 0; i--) {
+        const b = enemyShots[i];
+        if (Math.hypot(player.x - b.x, player.y - b.y) < 20) {
+          playerDamage(b.dmg);
+          enemyShots.splice(i, 1);
+          continue;
+        }
+        if (b.life <= 0) enemyShots.splice(i, 1);
+      }
+
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        if (Math.hypot(player.x - d.x, player.y - d.y) < 28) {
+          if (d.kind === 'energy') player.energy = clamp(player.energy + 30, 0, 100);
+          if (d.kind === 'shield') player.shields = clamp(player.shields + 35, 0, 100);
+          if (d.kind === 'torpedo') player.torpAmmo += 3;
+          drops.splice(i, 1);
+          continue;
+        }
+        if (d.life <= 0) drops.splice(i, 1);
+      }
+
+      for (let i = playerShots.length - 1; i >= 0; i--) {
+        const s = playerShots[i];
+        if (s.life <= 0 || s.x < -20 || s.x > world.w + 20 || s.y < -20 || s.y > world.h + 20) playerShots.splice(i, 1);
+      }
+      for (let i = torpedoes.length - 1; i >= 0; i--) {
+        const t = torpedoes[i];
+        if (t.life <= 0 || t.x < -20 || t.x > world.w + 20 || t.y < -20 || t.y > world.h + 20) torpedoes.splice(i, 1);
+      }
+      for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
+
+      if (enemies.length === 0) {
+        player.wave += 1;
+        if (player.wave > 6) {
+          ui.status.textContent = 'Mission success. Sector secured.';
+          gameOver = true;
+        } else {
+          spawnWave(player.wave);
+        }
+      }
+
+      draw();
+      updateHud();
+    }
+
+    function drawShip(x, y, angle, color, scale = 1) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.scale(scale, scale);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(20, 0);
+      ctx.lineTo(5, -10);
+      ctx.lineTo(-16, -9);
+      ctx.lineTo(-10, 0);
+      ctx.lineTo(-16, 9);
+      ctx.lineTo(5, 10);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, world.w, world.h);
+
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 130; i++) {
+        const x = (i * 97) % world.w;
+        const y = (i * 53 + i * i) % world.h;
+        const flick = (Math.sin(performance.now() / 320 + i) + 1) * 0.5;
+        ctx.globalAlpha = 0.2 + flick * 0.5;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+
+      drawShip(player.x, player.y, player.angle, player.invuln > 0 ? '#8be8ff' : '#d2e8ff', 1.1);
+
+      for (const e of enemies) drawShip(e.x, e.y, e.angle, e.type === 'raider' ? '#ffb183' : '#ff7f73', 0.9);
+
+      ctx.lineWidth = 2;
+      for (const s of playerShots) {
+        ctx.strokeStyle = '#53d3ff';
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x - s.vx * 0.018, s.y - s.vy * 0.018);
+        ctx.stroke();
+      }
+
+      for (const t of torpedoes) {
+        ctx.fillStyle = '#ffd16f';
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const b of enemyShots) {
+        ctx.fillStyle = '#ff8e8e';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+
+      for (const d of drops) {
+        const pulse = 1 + Math.sin(performance.now() / 220) * 0.2;
+        ctx.strokeStyle = d.kind === 'energy' ? '#9dffbe' : d.kind === 'shield' ? '#8be8ff' : '#ffd16f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, 10 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(2, 8, 24, 0.72)';
+        ctx.fillRect(0, 0, world.w, world.h);
+        ctx.fillStyle = '#d7e4ff';
+        ctx.font = 'bold 52px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(player.wave > 6 ? 'MISSION COMPLETE' : 'MISSION FAILED', world.w / 2, world.h / 2 - 20);
+        ctx.font = '24px Arial';
+        ctx.fillText('Press Restart Mission to play again', world.w / 2, world.h / 2 + 28);
+      }
+    }
+
+    function updateHud() {
+      ui.shield.style.width = `${player.shields}%`;
+      ui.hull.style.width = `${player.hull}%`;
+      ui.energy.style.width = `${player.energy}%`;
+      ui.kills.textContent = player.kills;
+      ui.wave.textContent = player.wave;
+      ui.torps.textContent = player.torpAmmo;
+    }
+
+    function loop(ts) {
+      const dt = Math.min(0.033, (ts - last) / 1000);
+      last = ts;
+      update(dt);
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', (e) => keys.add(e.key.toLowerCase()));
+    window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+
+    canvas.addEventListener('mousemove', (e) => {
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX - r.left) * (canvas.width / r.width);
+      const y = (e.clientY - r.top) * (canvas.height / r.height);
+      player.angle = Math.atan2(y - player.y, x - player.x);
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) shootPhaser();
+      if (e.button === 2) launchTorpedo();
+    });
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    document.getElementById('restartBtn').addEventListener('click', resetMission);
+
+    resetMission();
+    updateHud();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
