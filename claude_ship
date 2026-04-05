@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STAR TREK: TACTICAL ASSAULT</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --lcars-orange: #ff9900;
+    --lcars-gold: #ffcc00;
+    --lcars-blue: #99ccff;
+    --lcars-red: #cc4444;
+    --lcars-purple: #9966cc;
+    --lcars-teal: #33cccc;
+    --bg-dark: #000814;
+    --bg-panel: #0a0f1a;
+    --hull-fed: #6699cc;
+    --hull-klingon: #cc6633;
+    --text-main: #aaccff;
+    --shield-color: #4488ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-dark);
+    color: var(--text-main);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    background: var(--bg-panel);
+    border-bottom: 2px solid var(--lcars-orange);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  #topbar h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--lcars-gold);
+    text-shadow: 0 0 10px #ffcc0088;
+  }
+  #stardate {
+    font-size: 11px;
+    color: var(--lcars-orange);
+  }
+  #sector-info {
+    font-size: 11px;
+    color: var(--lcars-blue);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── LEFT PANEL ── */
+  #left-panel {
+    width: 190px;
+    background: var(--bg-panel);
+    border-right: 2px solid var(--lcars-orange);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .panel-section {
+    border: 1px solid #334466;
+    border-radius: 4px;
+    padding: 8px;
+    background: #050b14;
+  }
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--lcars-orange);
+    border-bottom: 1px solid #334466;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+  }
+
+  /* Bars */
+  .stat-row { margin-bottom: 5px; }
+  .stat-label { font-size: 10px; color: #8899bb; display: flex; justify-content: space-between; }
+  .bar-track {
+    height: 8px;
+    background: #0d1a2a;
+    border-radius: 2px;
+    margin-top: 2px;
+    overflow: hidden;
+    border: 1px solid #223344;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease, background 0.3s;
+  }
+  .bar-shields { background: linear-gradient(90deg, #2255cc, #4488ff); }
+  .bar-hull    { background: linear-gradient(90deg, #cc4400, #ff6622); }
+  .bar-energy  { background: linear-gradient(90deg, #007755, #00cc88); }
+  .bar-enemy-shields { background: linear-gradient(90deg, #882222, #cc3333); }
+  .bar-enemy-hull    { background: linear-gradient(90deg, #883300, #cc6622); }
+
+  /* Weapons */
+  .weapon-btn {
+    width: 100%;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    background: #0d1a2a;
+    border: 1px solid #334466;
+    color: var(--text-main);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    text-align: left;
+    transition: all 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .weapon-btn:hover:not(:disabled) {
+    background: #1a3060;
+    border-color: var(--lcars-blue);
+    color: #fff;
+  }
+  .weapon-btn.selected {
+    background: #0a2040;
+    border-color: var(--lcars-gold);
+    color: var(--lcars-gold);
+  }
+  .weapon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .weapon-cost { font-size: 9px; color: #00cc88; }
+
+  /* ── CANVAS ── */
+  #game-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Tactical grid overlay text */
+  #crosshair-label {
+    position: absolute;
+    pointer-events: none;
+    font-size: 10px;
+    color: var(--lcars-gold);
+    white-space: nowrap;
+    display: none;
+  }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    width: 190px;
+    background: var(--bg-panel);
+    border-left: 2px solid var(--lcars-orange);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Combat log */
+  #combat-log {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 10px;
+    line-height: 1.6;
+    color: #7799bb;
+    min-height: 0;
+  }
+  #combat-log::-webkit-scrollbar { width: 4px; }
+  #combat-log::-webkit-scrollbar-thumb { background: #334466; border-radius: 2px; }
+
+  .log-line { padding: 1px 0; border-bottom: 1px solid #0d1a2a; }
+  .log-hit   { color: #ff6622; }
+  .log-crit  { color: var(--lcars-gold); }
+  .log-miss  { color: #556677; }
+  .log-sys   { color: var(--lcars-teal); }
+  .log-warn  { color: var(--lcars-red); }
+  .log-good  { color: #00cc88; }
+
+  /* Action buttons */
+  .action-btn {
+    width: 100%;
+    padding: 7px;
+    background: #0d1a2a;
+    border: 1px solid #334466;
+    color: var(--text-main);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+  }
+  .action-btn:hover:not(:disabled) {
+    background: #1a3060;
+    border-color: var(--lcars-teal);
+    color: #fff;
+  }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .action-btn.danger { border-color: #993333; }
+  .action-btn.danger:hover:not(:disabled) { background: #3a0a0a; border-color: var(--lcars-red); }
+  .action-btn.active { border-color: var(--lcars-gold); color: var(--lcars-gold); }
+
+  /* ── BOTTOM BAR ── */
+  #bottombar {
+    background: var(--bg-panel);
+    border-top: 2px solid var(--lcars-orange);
+    padding: 5px 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+  .bottom-stat { color: #8899bb; }
+  .bottom-stat span { color: var(--lcars-gold); }
+  #status-msg { margin-left: auto; color: var(--lcars-teal); font-size: 11px; }
+
+  /* ── OVERLAY SCREENS ── */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,8,20,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    font-family: 'Orbitron', sans-serif;
+  }
+  .overlay h2 {
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--lcars-gold);
+    text-shadow: 0 0 30px #ffcc0066;
+    margin-bottom: 10px;
+  }
+  .overlay .sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--lcars-blue);
+    margin-bottom: 30px;
+    letter-spacing: 2px;
+  }
+  .overlay-btn {
+    padding: 12px 36px;
+    background: #0a1a2a;
+    border: 2px solid var(--lcars-gold);
+    color: var(--lcars-gold);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 6px;
+    transition: all 0.2s;
+  }
+  .overlay-btn:hover { background: #1a3040; box-shadow: 0 0 20px #ffcc0044; }
+  #mission-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: #8899bb;
+    max-width: 420px;
+    text-align: center;
+    line-height: 1.8;
+    margin-bottom: 24px;
+  }
+
+  .cooldown-bar {
+    height: 3px;
+    background: var(--lcars-gold);
+    border-radius: 2px;
+    margin-top: 2px;
+    transition: width 0.2s linear;
+  }
+
+  /* shield arc on canvas is drawn in JS */
+  #minimap {
+    width: 100%;
+    height: 110px;
+    background: #02080f;
+    border: 1px solid #223344;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+  #minimap canvas { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>★ STAR TREK : TACTICAL ASSAULT</h1>
+  <div id="sector-info">SECTOR 001 · ALPHA QUADRANT</div>
+  <div id="stardate">STARDATE <span id="sd-val">47634.4</span></div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+
+    <div class="panel-section">
+      <div class="panel-title">PLAYER VESSEL</div>
+      <div id="ship-name-display" style="font-size:11px;color:var(--lcars-gold);margin-bottom:6px;">USS ENTERPRISE</div>
+      <div class="stat-row">
+        <div class="stat-label"><span>SHIELDS</span><span id="p-shields-val">100%</span></div>
+        <div class="bar-track"><div class="bar-fill bar-shields" id="p-shields-bar" style="width:100%"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>HULL</span><span id="p-hull-val">100%</span></div>
+        <div class="bar-track"><div class="bar-fill bar-hull" id="p-hull-bar" style="width:100%"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>ENERGY</span><span id="p-energy-val">100%</span></div>
+        <div class="bar-track"><div class="bar-fill bar-energy" id="p-energy-bar" style="width:100%"></div></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">ENEMY VESSEL</div>
+      <div id="enemy-name-display" style="font-size:11px;color:#cc6633;margin-bottom:6px;">IKS KRONOS</div>
+      <div class="stat-row">
+        <div class="stat-label"><span>SHIELDS</span><span id="e-shields-val">100%</span></div>
+        <div class="bar-track"><div class="bar-fill bar-enemy-shields" id="e-shields-bar" style="width:100%"></div></div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label"><span>HULL</span><span id="e-hull-val">100%</span></div>
+        <div class="bar-track"><div class="bar-fill bar-enemy-hull" id="e-hull-bar" style="width:100%"></div></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">WEAPONS</div>
+      <button class="weapon-btn selected" id="wb-phaser" onclick="selectWeapon('phaser')">
+        PHASER <span class="weapon-cost">15E</span>
+      </button>
+      <button class="weapon-btn" id="wb-torpedo" onclick="selectWeapon('torpedo')">
+        TORPEDO <span class="weapon-cost">25E</span>
+      </button>
+      <button class="weapon-btn" id="wb-beam" onclick="selectWeapon('beam')">
+        DISRUPTOR <span class="weapon-cost">20E</span>
+      </button>
+      <div style="font-size:9px;color:#556677;margin-top:4px;" id="weapon-desc">Rapid-fire energy weapon. Hits shields effectively.</div>
+    </div>
+
+    <div class="panel-section" style="font-size:10px;color:#7799bb;">
+      <div class="panel-title">POWER SYSTEMS</div>
+      <div style="margin-bottom:4px;color:#8899bb;">WARP CORE <span style="color:var(--lcars-teal);float:right" id="warp-status">ONLINE</span></div>
+      <div style="margin-bottom:4px;color:#8899bb;">SHIELDS <span style="color:var(--lcars-teal);float:right" id="shields-status">ACTIVE</span></div>
+      <div style="color:#8899bb;">WEAPONS <span style="color:var(--lcars-teal);float:right" id="weapons-status">ARMED</span></div>
+    </div>
+
+  </div>
+
+  <!-- GAME CANVAS -->
+  <div id="game-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div id="crosshair-label"></div>
+
+    <!-- START SCREEN -->
+    <div class="overlay" id="start-screen">
+      <h2>TACTICAL ASSAULT</h2>
+      <div class="sub">★ STAR TREK ★</div>
+      <div id="mission-text">
+        STARDATE 47634.4 — A KLINGON BATTLE CRUISER HAS ENTERED<br>
+        FEDERATION SPACE. YOU ARE ORDERED TO ENGAGE AND NEUTRALIZE<br>
+        THE THREAT. SHIELDS TO MAXIMUM. WEAPONS HOT.<br><br>
+        MOVE: WASD / ARROW KEYS &nbsp;|&nbsp; AIM: MOUSE &nbsp;|&nbsp; FIRE: CLICK / SPACE
+      </div>
+      <button class="overlay-btn" onclick="startGame()">ENGAGE</button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div class="overlay" id="gameover-screen" style="display:none">
+      <h2 id="go-title">HULL BREACH</h2>
+      <div class="sub" id="go-sub">SHIP DESTROYED</div>
+      <div id="mission-text" id="go-text" style="color:#8899bb;font-family:Share Tech Mono;font-size:12px;text-align:center;margin-bottom:24px;"></div>
+      <button class="overlay-btn" onclick="restartGame()">RETRY MISSION</button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+
+    <div class="panel-section">
+      <div class="panel-title">TACTICAL ACTIONS</div>
+      <button class="action-btn" id="btn-boost" onclick="boostShields()">⚡ BOOST SHIELDS</button>
+      <button class="action-btn" id="btn-repair" onclick="emergencyRepair()">🔧 EMRG. REPAIR</button>
+      <button class="action-btn danger" id="btn-nova" onclick="novaBlast()">💥 NOVA BURST</button>
+      <div style="font-size:9px;color:#445566;margin-top:2px;" id="cd-label"></div>
+    </div>
+
+    <div class="panel-section" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <div class="panel-title">COMBAT LOG</div>
+      <div id="combat-log"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-title">TACTICAL MAP</div>
+      <div id="minimap"><canvas id="mm-canvas"></canvas></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="bottombar">
+  <div class="bottom-stat">KILLS <span id="stat-kills">0</span></div>
+  <div class="bottom-stat">SCORE <span id="stat-score">0</span></div>
+  <div class="bottom-stat">WAVE <span id="stat-wave">1</span></div>
+  <div class="bottom-stat">ENEMIES <span id="stat-enemies">1</span></div>
+  <div id="status-msg">SYSTEMS NOMINAL</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  GAME ENGINE
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const mm = document.getElementById('mm-canvas');
+const mmCtx = mm.getContext('2d');
+
+// Resize canvas to fill its container
+function resizeCanvas() {
+  const wrap = document.getElementById('game-wrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  mm.width = document.getElementById('minimap').clientWidth;
+  mm.height = document.getElementById('minimap').clientHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Constants ───────────────────────────────────────
+const WORLD_W = 3000, WORLD_H = 3000;
+const STAR_COUNT = 400;
+const MAX_NEBULAE = 8;
+
+// ─── State ───────────────────────────────────────────
+let gameRunning = false;
+let player, enemies, projectiles, particles, stars, nebulae;
+let camera = { x: 0, y: 0 };
+let selectedWeapon = 'phaser';
+let kills = 0, score = 0, wave = 1;
+let cooldowns = { boost: 0, repair: 0, nova: 0 };
+let keys = {};
+let mouseWorld = { x: 0, y: 0 };
+let lastTime = 0;
+let energyRegen = 0;
+let stardate = 47634.4;
+
+const WEAPON_DATA = {
+  phaser: { cost: 15, dmg: [20,35], color: '#ff8800', speed: 14, cooldown: 400, pierce: false, desc: 'Rapid-fire energy weapon. Hits shields effectively.' },
+  torpedo: { cost: 25, dmg: [50,80], color: '#00ffcc', speed: 8, cooldown: 900, pierce: true,  desc: 'Quantum torpedo. Penetrates shields partially.' },
+  beam:    { cost: 20, dmg: [30,50], color: '#cc44ff', speed: 12, cooldown: 650, pierce: false, desc: 'Disruptor beam. Bypasses shields (30% chance).' },
+};
+
+const ENEMY_TYPES = [
+  { name: 'IKS KRONOS',    color: '#cc6633', size: 28, speed: 1.2, hp: 200, shields: 150, score: 200, fireRate: 2200 },
+  { name: "B'REL SCOUT",   color: '#aa4422', size: 20, speed: 2.0, hp: 120, shields: 80,  score: 100, fireRate: 1500 },
+  { name: 'NEG\'VAR WARSHIP', color: '#884400', size: 36, speed: 0.8, hp: 350, shields: 250, score: 350, fireRate: 3000 },
+  { name: 'BORG CUBE',     color: '#668866', size: 40, speed: 0.5, hp: 500, shields: 400, score: 500, fireRate: 4000 },
+];
+
+// ─── Init world ──────────────────────────────────────
+function initWorld() {
+  stars = Array.from({ length: STAR_COUNT }, () => ({
+    x: Math.random() * WORLD_W,
+    y: Math.random() * WORLD_H,
+    r: Math.random() * 1.5 + 0.3,
+    bright: Math.random()
+  }));
+
+  nebulae = Array.from({ length: MAX_NEBULAE }, () => ({
+    x: Math.random() * WORLD_W,
+    y: Math.random() * WORLD_H,
+    rx: 120 + Math.random() * 200,
+    ry: 80 + Math.random() * 150,
+    color: ['rgba(100,40,150,0.12)', 'rgba(40,80,150,0.1)', 'rgba(150,60,40,0.09)'][Math.floor(Math.random()*3)]
+  }));
+}
+
+function createPlayer() {
+  return {
+    x: WORLD_W / 2, y: WORLD_H / 2,
+    vx: 0, vy: 0,
+    angle: -Math.PI / 2,
+    size: 22,
+    shields: 100, maxShields: 100,
+    hull: 100, maxHull: 100,
+    energy: 100, maxEnergy: 100,
+    fireCooldown: 0,
+    shieldRegenTimer: 0,
+    color: '#6699cc',
+    name: 'USS ENTERPRISE'
+  };
+}
+
+function spawnEnemies() {
+  enemies = [];
+  const count = Math.min(1 + Math.floor((wave - 1) * 0.7), 5);
+  document.getElementById('stat-enemies').textContent = count;
+  for (let i = 0; i < count; i++) {
+    const typeIdx = Math.min(Math.floor(Math.random() * (wave * 0.6 + 1)), ENEMY_TYPES.length - 1);
+    const t = ENEMY_TYPES[typeIdx];
+    let ex, ey;
+    do {
+      ex = 200 + Math.random() * (WORLD_W - 400);
+      ey = 200 + Math.random() * (WORLD_H - 400);
+    } while (Math.hypot(ex - player.x, ey - player.y) < 400);
+
+    enemies.push({
+      x: ex, y: ey,
+      vx: 0, vy: 0,
+      angle: Math.random() * Math.PI * 2,
+      size: t.size,
+      shields: t.shields, maxShields: t.shields,
+      hull: t.hp, maxHull: t.hp,
+      color: t.color,
+      name: t.name,
+      speed: t.speed,
+      score: t.score,
+      fireRate: t.fireRate,
+      fireCooldown: Math.random() * t.fireRate,
+      ai: { state: 'approach', strafeDir: 1, strafeTick: 0 },
+      shieldRegenTimer: 0,
+    });
+  }
+  updateEnemyUI(enemies[0]);
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  kills = 0; score = 0; wave = 1;
+  projectiles = []; particles = [];
+  player = createPlayer();
+  initWorld();
+  spawnEnemies();
+  gameRunning = true;
+  updateUI();
+  log('SYSTEMS ONLINE. ENGAGING ENEMY.', 'sys');
+  requestAnimationFrame(loop);
+}
+
+function restartGame() {
+  document.getElementById('gameover-screen').style.display = 'none';
+  startGame();
+}
+
+// ─── Main loop ───────────────────────────────────────
+function loop(ts) {
+  if (!gameRunning) return;
+  const dt = Math.min(ts - lastTime, 50);
+  lastTime = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ─── Update ──────────────────────────────────────────
+function update(dt) {
+  stardate += dt * 0.00001;
+  document.getElementById('sd-val').textContent = stardate.toFixed(1);
+
+  // Cooldowns
+  for (const k in cooldowns) cooldowns[k] = Math.max(0, cooldowns[k] - dt);
+  updateCooldownUI();
+
+  // Player input
+  const TURN = 0.003 * dt;
+  const THRUST = 0.004 * dt;
+  const DRAG = 0.97;
+  const MAX_SPEED = 3.5;
+
+  // Rotate to face mouse
+  const dx = mouseWorld.x - player.x, dy = mouseWorld.y - player.y;
+  const targetAngle = Math.atan2(dy, dx);
+  let da = targetAngle - player.angle;
+  while (da > Math.PI) da -= 2 * Math.PI;
+  while (da < -Math.PI) da += 2 * Math.PI;
+  player.angle += Math.sign(da) * Math.min(Math.abs(da), TURN * 3);
+
+  // Thrust
+  if (keys['w'] || keys['ArrowUp']) {
+    player.vx += Math.cos(player.angle) * THRUST;
+    player.vy += Math.sin(player.angle) * THRUST;
+    spawnThruster(player);
+  }
+  if (keys['s'] || keys['ArrowDown']) {
+    player.vx -= Math.cos(player.angle) * THRUST * 0.5;
+    player.vy -= Math.sin(player.angle) * THRUST * 0.5;
+  }
+  if (keys['a'] || keys['ArrowLeft']) {
+    player.vx += Math.cos(player.angle - Math.PI / 2) * THRUST * 0.6;
+    player.vy += Math.sin(player.angle - Math.PI / 2) * THRUST * 0.6;
+  }
+  if (keys['d'] || keys['ArrowRight']) {
+    player.vx += Math.cos(player.angle + Math.PI / 2) * THRUST * 0.6;
+    player.vy += Math.sin(player.angle + Math.PI / 2) * THRUST * 0.6;
+  }
+
+  player.vx *= DRAG; player.vy *= DRAG;
+  const spd = Math.hypot(player.vx, player.vy);
+  if (spd > MAX_SPEED) { player.vx *= MAX_SPEED / spd; player.vy *= MAX_SPEED / spd; }
+  player.x = Math.max(50, Math.min(WORLD_W - 50, player.x + player.vx));
+  player.y = Math.max(50, Math.min(WORLD_H - 50, player.y + player.vy));
+
+  // Camera
+  camera.x += (player.x - canvas.width / 2 - camera.x) * 0.08;
+  camera.y += (player.y - canvas.height / 2 - camera.y) * 0.08;
+  camera.x = Math.max(0, Math.min(WORLD_W - canvas.width, camera.x));
+  camera.y = Math.max(0, Math.min(WORLD_H - canvas.height, camera.y));
+
+  // Player fire cooldown
+  if (player.fireCooldown > 0) player.fireCooldown -= dt;
+
+  // Auto-fire if space held
+  if (keys[' '] && player.fireCooldown <= 0) playerFire();
+
+  // Energy regen
+  energyRegen += dt;
+  if (energyRegen > 800) {
+    player.energy = Math.min(player.maxEnergy, player.energy + 5);
+    energyRegen = 0;
+  }
+
+  // Shield regen
+  player.shieldRegenTimer += dt;
+  if (player.shieldRegenTimer > 3000 && player.shields < player.maxShields) {
+    player.shields = Math.min(player.maxShields, player.shields + 2);
+    player.shieldRegenTimer = 2500;
+  }
+
+  // Enemy AI
+  for (const e of enemies) {
+    updateEnemy(e, dt);
+  }
+
+  // Projectiles
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.life -= dt;
+    if (p.life <= 0 || p.x < 0 || p.x > WORLD_W || p.y < 0 || p.y > WORLD_H) {
+      projectiles.splice(i, 1); continue;
+    }
+    // Collision
+    if (p.fromPlayer) {
+      for (let j = enemies.length - 1; j >= 0; j--) {
+        const e = enemies[j];
+        if (Math.hypot(p.x - e.x, p.y - e.y) < e.size + 6) {
+          hitEnemy(e, p);
+          if (!p.pierce) projectiles.splice(i, 1);
+          break;
+        }
+      }
+    } else {
+      if (Math.hypot(p.x - player.x, p.y - player.y) < player.size + 4) {
+        hitPlayer(p);
+        projectiles.splice(i, 1);
+      }
+    }
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.97; p.vy *= 0.97;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Wave complete?
+  if (enemies.length === 0) {
+    wave++;
+    score += wave * 100;
+    log(`WAVE ${wave} INCOMING. SHIELDS NOMINAL.`, 'sys');
+    spawnEnemies();
+    document.getElementById('stat-wave').textContent = wave;
+    // Partial restore
+    player.shields = Math.min(player.maxShields, player.shields + 30);
+    player.energy = Math.min(player.maxEnergy, player.energy + 40);
+  }
+
+  updateUI();
+}
+
+// ─── Enemy AI ────────────────────────────────────────
+function updateEnemy(e, dt) {
+  const dx = player.x - e.x, dy = player.y - e.y;
+  const dist = Math.hypot(dx, dy);
+  const ideal = 280;
+  let targetAngle = Math.atan2(dy, dx);
+
+  e.ai.strafeTick -= dt;
+  if (e.ai.strafeTick <= 0) { e.ai.strafeDir *= -1; e.ai.strafeTick = 1500 + Math.random() * 2000; }
+
+  const perpAngle = targetAngle + Math.PI / 2 * e.ai.strafeDir;
+  let thrust = { x: 0, y: 0 };
+  if (dist > ideal + 40) {
+    thrust.x = Math.cos(targetAngle) * e.speed * 0.6;
+    thrust.y = Math.sin(targetAngle) * e.speed * 0.6;
+  } else if (dist < ideal - 40) {
+    thrust.x = -Math.cos(targetAngle) * e.speed * 0.4;
+    thrust.y = -Math.sin(targetAngle) * e.speed * 0.4;
+  }
+  thrust.x += Math.cos(perpAngle) * e.speed * 0.5;
+  thrust.y += Math.sin(perpAngle) * e.speed * 0.5;
+
+  e.vx = (e.vx + thrust.x) * 0.93;
+  e.vy = (e.vy + thrust.y) * 0.93;
+  const spd = Math.hypot(e.vx, e.vy);
+  if (spd > e.speed * 2) { e.vx *= e.speed * 2 / spd; e.vy *= e.speed * 2 / spd; }
+  e.x = Math.max(50, Math.min(WORLD_W - 50, e.x + e.vx));
+  e.y = Math.max(50, Math.min(WORLD_H - 50, e.y + e.vy));
+  e.angle = targetAngle;
+
+  // Enemy shield regen
+  e.shieldRegenTimer += dt;
+  if (e.shieldRegenTimer > 4000 && e.shields < e.maxShields) {
+    e.shields = Math.min(e.maxShields, e.shields + 1);
+    e.shieldRegenTimer = 3500;
+  }
+
+  // Enemy fire
+  e.fireCooldown -= dt;
+  if (e.fireCooldown <= 0 && dist < 500) {
+    const spread = (Math.random() - 0.5) * 0.25;
+    const ang = Math.atan2(player.y - e.y, player.x - e.x) + spread;
+    const wtype = Math.random() < 0.3 ? 'torpedo' : (Math.random() < 0.5 ? 'beam' : 'phaser');
+    const wd = WEAPON_DATA[wtype];
+    projectiles.push({
+      x: e.x + Math.cos(ang) * e.size,
+      y: e.y + Math.sin(ang) * e.size,
+      vx: Math.cos(ang) * wd.speed * 0.85,
+      vy: Math.sin(ang) * wd.speed * 0.85,
+      color: wtype === 'torpedo' ? '#ff4422' : (wtype === 'beam' ? '#ff22cc' : '#ff6600'),
+      life: 3000,
+      dmg: wd.dmg[0] * 0.6,
+      fromPlayer: false,
+      type: wtype,
+      pierce: false,
+      r: wtype === 'torpedo' ? 5 : 3,
+    });
+    e.fireCooldown = e.fireRate + (Math.random() - 0.5) * 400;
+    spawnMuzzle(e, ang);
+  }
+}
+
+// ─── Firing ──────────────────────────────────────────
+function playerFire() {
+  const wd = WEAPON_DATA[selectedWeapon];
+  if (player.energy < wd.cost) { log('INSUFFICIENT ENERGY.', 'warn'); return; }
+  player.energy -= wd.cost;
+  player.fireCooldown = wd.cooldown;
+
+  const ang = Math.atan2(mouseWorld.y - player.y, mouseWorld.x - player.x);
+  const dmg = wd.dmg[0] + Math.random() * (wd.dmg[1] - wd.dmg[0]);
+
+  if (selectedWeapon === 'phaser') {
+    // dual cannons
+    for (const side of [-1, 1]) {
+      const perpX = Math.cos(ang - Math.PI / 2) * 6 * side;
+      const perpY = Math.sin(ang - Math.PI / 2) * 6 * side;
+      projectiles.push({ x: player.x + Math.cos(ang)*player.size + perpX, y: player.y + Math.sin(ang)*player.size + perpY,
+        vx: Math.cos(ang) * wd.speed, vy: Math.sin(ang) * wd.speed,
+        color: wd.color, life: 2000, dmg: dmg / 2, fromPlayer: true, type: 'phaser', pierce: false, r: 3 });
+    }
+  } else {
+    projectiles.push({ x: player.x + Math.cos(ang)*player.size, y: player.y + Math.sin(ang)*player.size,
+      vx: Math.cos(ang) * wd.speed, vy: Math.sin(ang) * wd.speed,
+      color: wd.color, life: 3000, dmg, fromPlayer: true, type: selectedWeapon, pierce: wd.pierce, r: selectedWeapon === 'torpedo' ? 6 : 4 });
+  }
+  spawnMuzzle(player, ang);
+}
+
+function hitEnemy(e, proj) {
+  e.shieldRegenTimer = 0;
+  let dmg = proj.dmg;
+  let shieldPierce = proj.type === 'beam' && Math.random() < 0.3;
+  let crit = Math.random() < 0.1;
+  if (crit) { dmg *= 1.8; }
+
+  let shieldHit = 0, hullHit = 0;
+  if (!shieldPierce && e.shields > 0) {
+    shieldHit = Math.min(e.shields, dmg * 0.85);
+    hullHit = dmg - shieldHit;
+    e.shields -= shieldHit;
+  } else {
+    hullHit = dmg;
+  }
+  if (proj.type === 'torpedo') hullHit *= 1.3;
+  e.hull -= hullHit;
+
+  spawnHitParticles(e.x, e.y, proj.type === 'phaser' ? '#ff8800' : proj.color);
+
+  const cls = crit ? 'crit' : 'hit';
+  log(`[${proj.type.toUpperCase()}] → ${e.name.split(' ')[0]}: ${Math.round(shieldHit)}SH ${Math.round(hullHit)}HULL${crit?' CRITICAL!':''}`, cls);
+
+  if (e.hull <= 0) {
+    destroyEnemy(e);
+  } else {
+    updateEnemyUI(e);
+  }
+}
+
+function hitPlayer(proj) {
+  player.shieldRegenTimer = 0;
+  let dmg = proj.dmg;
+  let shieldHit = 0, hullHit = 0;
+  if (player.shields > 0) {
+    shieldHit = Math.min(player.shields, dmg * 0.8);
+    hullHit = dmg - shieldHit;
+    player.shields -= shieldHit;
+  } else {
+    hullHit = dmg;
+  }
+  player.hull -= hullHit;
+  spawnHitParticles(player.x, player.y, '#4488ff');
+  log(`INCOMING FIRE: -${Math.round(shieldHit)}SH -${Math.round(hullHit)}HULL`, 'warn');
+
+  if (player.hull <= 0) gameOver(false);
+}
+
+function destroyEnemy(e) {
+  kills++;
+  score += e.score;
+  document.getElementById('stat-kills').textContent = kills;
+  document.getElementById('stat-score').textContent = score;
+  spawnExplosion(e.x, e.y, e.size, e.color);
+  log(`${e.name} DESTROYED. +${e.score}pts`, 'good');
+  enemies.splice(enemies.indexOf(e), 1);
+  if (enemies.length > 0) updateEnemyUI(enemies[0]);
+  else { document.getElementById('e-shields-val').textContent = '--'; document.getElementById('e-hull-val').textContent = '--'; }
+}
+
+// ─── Tactical Abilities ──────────────────────────────
+function boostShields() {
+  if (cooldowns.boost > 0 || player.energy < 30) return;
+  player.shields = Math.min(player.maxShields, player.shields + 50);
+  player.energy -= 30;
+  cooldowns.boost = 8000;
+  log('SHIELDS BOOSTED TO ' + Math.round(player.shields) + '%.', 'good');
+  spawnRingEffect(player.x, player.y, '#4488ff');
+}
+
+function emergencyRepair() {
+  if (cooldowns.repair > 0 || player.energy < 40) return;
+  player.hull = Math.min(player.maxHull, player.hull + 35);
+  player.energy -= 40;
+  cooldowns.repair = 12000;
+  log('EMERGENCY REPAIRS COMPLETE. HULL +35.', 'good');
+}
+
+function novaBlast() {
+  if (cooldowns.nova > 0 || player.energy < 60) return;
+  player.energy -= 60;
+  cooldowns.nova = 20000;
+  for (const e of enemies) {
+    const dist = Math.hypot(e.x - player.x, e.y - player.y);
+    if (dist < 350) {
+      const dmg = 80 + Math.random() * 60;
+      e.shields = Math.max(0, e.shields - dmg * 0.5);
+      e.hull -= dmg;
+      spawnHitParticles(e.x, e.y, '#cc44ff');
+      log(`NOVA BURST HIT ${e.name.split(' ')[0]}: -${Math.round(dmg)}`, 'crit');
+      if (e.hull <= 0) destroyEnemy(e);
+    }
+  }
+  spawnRingEffect(player.x, player.y, '#cc44ff');
+}
+
+// ─── Particles ───────────────────────────────────────
+function spawnHitParticles(x, y, color, n = 10) {
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 0.5 + Math.random() * 2;
+    particles.push({ x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 400 + Math.random() * 400, maxLife: 800, r: 1.5 + Math.random() * 2, color });
+  }
+}
+
+function spawnExplosion(x, y, size, color) {
+  for (let i = 0; i < 60; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 0.5 + Math.random() * 4;
+    particles.push({ x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
+      life: 600 + Math.random() * 1200, maxLife: 1800, r: 1 + Math.random() * 4,
+      color: Math.random() < 0.5 ? color : (Math.random() < 0.5 ? '#ff8800' : '#ffcc00') });
+  }
+}
+
+function spawnThruster(ship) {
+  const backAng = ship.angle + Math.PI + (Math.random() - 0.5) * 0.4;
+  particles.push({ x: ship.x + Math.cos(ship.angle + Math.PI) * ship.size,
+    y: ship.y + Math.sin(ship.angle + Math.PI) * ship.size,
+    vx: Math.cos(backAng) * (1 + Math.random()), vy: Math.sin(backAng) * (1 + Math.random()),
+    life: 180 + Math.random() * 120, maxLife: 300, r: 2 + Math.random() * 2,
+    color: Math.random() < 0.5 ? '#4488ff' : '#88aaff' });
+}
+
+function spawnMuzzle(ship, ang) {
+  for (let i = 0; i < 5; i++) {
+    const a = ang + (Math.random() - 0.5) * 0.5;
+    particles.push({ x: ship.x + Math.cos(ang) * ship.size, y: ship.y + Math.sin(ang) * ship.size,
+      vx: Math.cos(a) * (1 + Math.random() * 2), vy: Math.sin(a) * (1 + Math.random() * 2),
+      life: 150, maxLife: 150, r: 1 + Math.random() * 2, color: '#ffffff' });
+  }
+}
+
+let ringEffects = [];
+function spawnRingEffect(x, y, color) {
+  ringEffects.push({ x, y, r: 20, maxR: 350, life: 600, maxLife: 600, color });
+}
+
+// ─── Render ──────────────────────────────────────────
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000814';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
+
+  // Nebulae
+  for (const n of nebulae) {
+    ctx.save();
+    ctx.translate(n.x, n.y);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, n.rx);
+    g.addColorStop(0, n.color);
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.scale(1, n.ry / n.rx);
+    ctx.beginPath(); ctx.arc(0, 0, n.rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Stars
+  for (const s of stars) {
+    ctx.globalAlpha = 0.3 + s.bright * 0.7;
+    ctx.fillStyle = s.bright > 0.8 ? '#aaddff' : '#ffffff';
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Tactical grid (faint)
+  ctx.strokeStyle = 'rgba(50,80,120,0.15)';
+  ctx.lineWidth = 1;
+  const gs = 200;
+  for (let gx = 0; gx < WORLD_W; gx += gs) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, WORLD_H); ctx.stroke(); }
+  for (let gy = 0; gy < WORLD_H; gy += gs) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(WORLD_W, gy); ctx.stroke(); }
+
+  // Ring effects
+  for (let i = ringEffects.length - 1; i >= 0; i--) {
+    const re = ringEffects[i];
+    const t = 1 - re.life / re.maxLife;
+    re.r = 20 + (re.maxR - 20) * t;
+    re.life -= 16;
+    ctx.globalAlpha = (1 - t) * 0.7;
+    ctx.strokeStyle = re.color;
+    ctx.lineWidth = 3 * (1 - t);
+    ctx.beginPath(); ctx.arc(re.x, re.y, re.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+    if (re.life <= 0) ringEffects.splice(i, 1);
+  }
+
+  // Particles
+  for (const p of particles) {
+    const a = p.life / p.maxLife;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Projectiles
+  for (const p of projectiles) {
+    ctx.save();
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    // Tail
+    ctx.strokeStyle = p.color;
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = p.r;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - p.vx * 6, p.y - p.vy * 6);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Enemies
+  for (const e of enemies) {
+    drawShip(ctx, e, false);
+    // Name tag
+    ctx.fillStyle = 'rgba(204,102,51,0.8)';
+    ctx.font = '9px Share Tech Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(e.name, e.x, e.y - e.size - 12);
+    // Mini health bars
+    drawMiniBar(ctx, e.x - 24, e.y - e.size - 8, 48, 4, e.shields / e.maxShields, '#cc3333');
+    drawMiniBar(ctx, e.x - 24, e.y - e.size - 3, 48, 4, e.hull / e.maxHull, '#884400');
+  }
+
+  // Player
+  drawShip(ctx, player, true);
+  // Shield arc
+  if (player.shields > 0) {
+    const sa = player.shields / player.maxShields;
+    ctx.save();
+    ctx.globalAlpha = 0.18 + sa * 0.15;
+    ctx.strokeStyle = '#4488ff';
+    ctx.shadowColor = '#4488ff';
+    ctx.shadowBlur = 12;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size + 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Crosshair at mouse
+  const mwx = mouseWorld.x, mwy = mouseWorld.y;
+  ctx.save();
+  ctx.strokeStyle = '#ffcc0077';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  // Line from player to mouse
+  ctx.beginPath(); ctx.moveTo(player.x, player.y); ctx.lineTo(mwx, mwy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#ffcc00aa';
+  ctx.lineWidth = 1.5;
+  const cr = 12;
+  ctx.beginPath(); ctx.arc(mwx, mwy, cr, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mwx - cr - 5, mwy); ctx.lineTo(mwx + cr + 5, mwy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mwx, mwy - cr - 5); ctx.lineTo(mwx, mwy + cr + 5); ctx.stroke();
+  ctx.restore();
+
+  ctx.restore(); // camera
+
+  // Minimap
+  drawMinimap();
+}
+
+function drawShip(ctx, ship, isPlayer) {
+  ctx.save();
+  ctx.translate(ship.x, ship.y);
+  ctx.rotate(ship.angle);
+  ctx.shadowColor = ship.color;
+  ctx.shadowBlur = 15;
+  ctx.fillStyle = ship.color;
+  ctx.strokeStyle = isPlayer ? '#aaccff' : '#cc8855';
+  ctx.lineWidth = 1.5;
+
+  if (isPlayer) {
+    // Federation saucer + nacelles
+    ctx.beginPath();
+    ctx.ellipse(0, 0, ship.size * 0.7, ship.size * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // Secondary hull
+    ctx.fillStyle = '#5588bb';
+    ctx.beginPath();
+    ctx.ellipse(ship.size * 0.15, 0, ship.size * 0.5, ship.size * 0.25, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Nacelles
+    ctx.fillStyle = '#3366aa';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(ship.size * 0.1, side * ship.size * 0.55, ship.size * 0.55, ship.size * 0.12, 0, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    }
+    // Bussard collectors glow
+    ctx.fillStyle = '#ff6600';
+    ctx.shadowColor = '#ff6600'; ctx.shadowBlur = 8;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(ship.size * 0.65, side * ship.size * 0.55, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Klingon Bird-of-Prey style
+    ctx.beginPath();
+    ctx.moveTo(ship.size * 1.0, 0);
+    ctx.lineTo(-ship.size * 0.5, ship.size * 0.6);
+    ctx.lineTo(-ship.size * 0.6, 0);
+    ctx.lineTo(-ship.size * 0.5, -ship.size * 0.6);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // Wings
+    ctx.fillStyle = ship.color;
+    ctx.globalAlpha = 0.7;
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(ship.size * 0.2, s * ship.size * 0.3);
+      ctx.lineTo(ship.size * 0.8, s * ship.size * 1.1);
+      ctx.lineTo(-ship.size * 0.3, s * ship.size * 0.9);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Weapon glow
+    ctx.fillStyle = '#ff4400';
+    ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(ship.size * 0.85, 0, 4, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawMiniBar(ctx, x, y, w, h, pct, color) {
+  ctx.fillStyle = '#111';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w * Math.max(0, pct), h);
+}
+
+function drawMinimap() {
+  const W = mm.width, H = mm.height;
+  mmCtx.clearRect(0, 0, W, H);
+  mmCtx.fillStyle = '#020a12';
+  mmCtx.fillRect(0, 0, W, H);
+  mmCtx.strokeStyle = '#223344';
+  mmCtx.lineWidth = 1;
+  mmCtx.strokeRect(0, 0, W, H);
+
+  const sx = W / WORLD_W, sy = H / WORLD_H;
+  // Player
+  mmCtx.fillStyle = '#4488ff';
+  mmCtx.beginPath();
+  mmCtx.arc(player.x * sx, player.y * sy, 3, 0, Math.PI * 2);
+  mmCtx.fill();
+  // Enemies
+  for (const e of enemies) {
+    mmCtx.fillStyle = '#cc4422';
+    mmCtx.beginPath();
+    mmCtx.arc(e.x * sx, e.y * sy, 3, 0, Math.PI * 2);
+    mmCtx.fill();
+  }
+  // Viewport box
+  mmCtx.strokeStyle = '#ffcc0044';
+  mmCtx.lineWidth = 1;
+  mmCtx.strokeRect(camera.x * sx, camera.y * sy, canvas.width * sx, canvas.height * sy);
+}
+
+// ─── UI Helpers ──────────────────────────────────────
+function updateUI() {
+  const p = player;
+  setBar('p-shields', p.shields / p.maxShields);
+  setBar('p-hull', p.hull / p.maxHull);
+  setBar('p-energy', p.energy / p.maxEnergy);
+  document.getElementById('p-shields-val').textContent = Math.round(p.shields) + '%';
+  document.getElementById('p-hull-val').textContent = Math.round(p.hull) + '%';
+  document.getElementById('p-energy-val').textContent = Math.round(p.energy) + '%';
+  if (enemies.length > 0) updateEnemyUI(enemies[0]);
+  document.getElementById('stat-score').textContent = score;
+}
+
+function updateEnemyUI(e) {
+  if (!e) return;
+  setBar('e-shields', e.shields / e.maxShields);
+  setBar('e-hull', e.hull / e.maxHull);
+  document.getElementById('e-shields-val').textContent = Math.round(e.shields / e.maxShields * 100) + '%';
+  document.getElementById('e-hull-val').textContent = Math.round(e.hull / e.maxHull * 100) + '%';
+  document.getElementById('enemy-name-display').textContent = e.name;
+}
+
+function setBar(id, pct) {
+  pct = Math.max(0, Math.min(1, pct));
+  document.getElementById(id + '-bar').style.width = (pct * 100) + '%';
+}
+
+function updateCooldownUI() {
+  const bl = document.getElementById('btn-boost');
+  const rl = document.getElementById('btn-repair');
+  const nl = document.getElementById('btn-nova');
+  bl.textContent = cooldowns.boost > 0 ? `⚡ BOOST (${(cooldowns.boost/1000).toFixed(1)}s)` : '⚡ BOOST SHIELDS';
+  rl.textContent = cooldowns.repair > 0 ? `🔧 REPAIR (${(cooldowns.repair/1000).toFixed(1)}s)` : '🔧 EMRG. REPAIR';
+  nl.textContent = cooldowns.nova > 0 ? `💥 NOVA (${(cooldowns.nova/1000).toFixed(1)}s)` : '💥 NOVA BURST';
+  bl.disabled = cooldowns.boost > 0 || player.energy < 30;
+  rl.disabled = cooldowns.repair > 0 || player.energy < 40;
+  nl.disabled = cooldowns.nova > 0 || player.energy < 60;
+}
+
+function log(msg, cls = '') {
+  const el = document.getElementById('combat-log');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' log-' + cls : '');
+  line.textContent = '> ' + msg;
+  el.appendChild(line);
+  if (el.children.length > 60) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+  document.getElementById('status-msg').textContent = msg.substring(0, 45);
+}
+
+function selectWeapon(w) {
+  selectedWeapon = w;
+  document.querySelectorAll('.weapon-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('wb-' + w).classList.add('selected');
+  document.getElementById('weapon-desc').textContent = WEAPON_DATA[w].desc;
+}
+
+function gameOver(won) {
+  gameRunning = false;
+  const el = document.getElementById('gameover-screen');
+  document.getElementById('go-title').textContent = won ? 'VICTORY' : 'HULL BREACH';
+  document.getElementById('go-sub').textContent = won ? 'MISSION COMPLETE' : 'SHIP DESTROYED';
+  el.style.display = 'flex';
+  log(won ? 'MISSION COMPLETE!' : 'VESSEL DESTROYED!', won ? 'good' : 'warn');
+}
+
+// ─── Input ───────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === ' ') { e.preventDefault(); if (gameRunning && player.fireCooldown <= 0) playerFire(); }
+  if (e.key === '1') selectWeapon('phaser');
+  if (e.key === '2') selectWeapon('torpedo');
+  if (e.key === '3') selectWeapon('beam');
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+  mouseWorld.x = (e.clientX - rect.left) * sx + camera.x;
+  mouseWorld.y = (e.clientY - rect.top) * sy + camera.y;
+});
+
+canvas.addEventListener('click', () => {
+  if (!gameRunning) return;
+  if (player.fireCooldown <= 0) playerFire();
+});
+
+// ─── Boot ─────────────────────────────────────────────
+projectiles = []; particles = []; enemies = []; ringEffects = [];
+player = createPlayer();
+initWorld();
+</script>
+</body>
+</html>
