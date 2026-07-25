@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ladder Problem</title>
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        
+        #main-container { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
+        
+        #controls { width: 340px; background: #252525; padding: 20px; border-right: 3px solid #f1c40f; z-index: 10; box-shadow: 5px 0 15px rgba(0,0,0,0.5); overflow-y: auto; }
+        
+        canvas { flex-grow: 1; cursor: move; background: #87ceeb; }
+        
+        h2 { color: #f1c40f; margin-top: 0; border-bottom: 2px solid #444; padding-bottom: 10px; }
+        
+        .stat { background: #333; padding: 12px; margin: 10px 0; border-radius: 6px; border-left: 5px solid #3498db; font-size: 1.1em; }
+        
+        .input-box { background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-top: 20px; }
+        
+        input { width: 100%; padding: 12px; box-sizing: border-box; background: #000; color: #f1c40f; border: 2px solid #555; font-size: 1.3em; font-weight: bold; margin-top: 8px; border-radius: 4px; }
+        
+        button { cursor: pointer; border: none; border-radius: 4px; font-weight: bold; font-size: 1em; transition: 0.2s; }
+        
+        .btn-reveal { width: 100%; padding: 14px; margin-top: 12px; background: #f1c40f; color: #000; text-transform: uppercase; }
+        
+        #feedback { text-align: center; margin: 15px 0; font-weight: bold; font-size: 1.2em; min-height: 1.5em; }
+
+        /* Floating Math Overlay */
+        #math-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #f1c40f;
+            display: none;
+            font-family: 'Courier New', Courier, monospace;
+            pointer-events: none;
+            z-index: 20;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        #bottom-bar { height: 70px; background: #252525; display: flex; align-items: center; justify-content: space-around; padding: 0 20px; border-top: 3px solid #f1c40f; gap: 20px; }
+        
+        .btn-bottom { flex: 1; height: 50px; background: #444; color: #eee; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-bottom:hover { background: #555; }
+        .btn-new { background: #2980b9; }
+        .btn-new:hover { background: #3498db; }
+    </style>
+</head>
+<body>
+
+<div id="main-container">
+    <div id="controls">
+        <h2>Ladder Problem</h2>
+        <p style="font-size: 0.85em; color: #aaa;">Find the missing ladder length using the building height and shadow length.</p>
+        
+        <div class="stat">Building Height (a): <b id="ui-h">--</b> ft</div>
+        <div class="stat" style="border-left-color: #9b59b6;">Length of Shadow (b): <b id="ui-b">--</b> ft</div>
+
+        <div class="input-box">
+            <label style="color: #f1c40f; font-weight: bold;">Enter Ladder Length:</label>
+            <input type="number" id="guess" step="0.1" placeholder="0.0">
+            <button class="btn-reveal" onclick="revealLadder()">Generate Ladder</button>
+        </div>
+
+        <div id="feedback"></div>
+    </div>
+
+    <canvas id="renderCanvas"></canvas>
+    
+    <div id="math-display"></div>
+</div>
+
+<div id="bottom-bar">
+    <button class="btn-bottom" onclick="toggleFormula()">Show Math Solution</button>
+    <button class="btn-bottom btn-new" onclick="resetProblem()">New Problem</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('renderCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let width, height;
+    let viewAngle = 0.5; 
+    let targetH, targetB, targetC;
+    let studentLength = 0;
+    let isLadderVisible = false;
+    let showMath = false;
+
+    const leanAngle = 60 * (Math.PI / 180);
+    let isDragging = false;
+    let lastMouseX = 0;
+
+    function init() {
+        window.addEventListener('resize', resize);
+        resize();
+
+        canvas.addEventListener('mousedown', (e) => { isDragging = true; lastMouseX = e.clientX; });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                viewAngle += (e.clientX - lastMouseX) * 0.01;
+                lastMouseX = e.clientX;
+                draw();
+            }
+        });
+        resetProblem();
+    }
+
+    function resize() {
+        width = canvas.width = window.innerWidth - 340;
+        height = canvas.height = window.innerHeight - 70;
+        draw();
+    }
+
+    function resetProblem() {
+        targetH = Math.floor(Math.random() * 11) + 10;
+        targetB = parseFloat((targetH / Math.tan(leanAngle)).toFixed(1));
+        targetC = Math.sqrt(Math.pow(targetH, 2) + Math.pow(targetB, 2));
+
+        studentLength = 0;
+        isLadderVisible = false;
+        
+        document.getElementById('ui-h').innerText = targetH;
+        document.getElementById('ui-b').innerText = targetB;
+        document.getElementById('guess').value = "";
+        document.getElementById('feedback').innerText = "";
+        
+        updateMathOverlay();
+        draw();
+    }
+
+    function updateMathOverlay() {
+        const hSq = (targetH ** 2).toFixed(2);
+        const bSq = (targetB ** 2).toFixed(2);
+        const sumSq = (parseFloat(hSq) + parseFloat(bSq)).toFixed(2);
+        
+        document.getElementById('math-display').innerHTML = `
+            <div style="color:#f1c40f; font-weight:bold; margin-bottom:10px;">Pythagorean Theorem:</div>
+            a² + b² = c²<br>
+            ${targetH}² + ${targetB}² = c²<br>
+            ${hSq} + ${bSq} = c²<br>
+            ${sumSq} = c²<br>
+            √${sumSq} = c<br>
+            <b style="color:#2ecc71;">c ≈ ${targetC.toFixed(2)} ft</b>
+        `;
+    }
+
+    function revealLadder() {
+        const val = parseFloat(document.getElementById('guess').value);
+        if (isNaN(val) || val <= 0) return;
+        studentLength = val;
+        isLadderVisible = true;
+        const diff = Math.abs(studentLength - targetC);
+        const fb = document.getElementById('feedback');
+        if (diff < 0.25) { fb.innerText = "✓ PERFECT FIT!"; fb.style.color = "#2ecc71"; }
+        else { fb.innerText = studentLength < targetC ? "✗ TOO SHORT" : "✗ TOO LONG"; fb.style.color = "#e74c3c"; }
+        draw();
+    }
+
+    function toggleFormula() {
+        showMath = !showMath;
+        document.getElementById('math-display').style.display = showMath ? 'block' : 'none';
+        draw();
+    }
+
+    function project(x, y, z) {
+        const cx = width / 2;
+        const cy = height / 2 + 80; 
+        const scale = 16; 
+        const cos = Math.cos(viewAngle);
+        const sin = Math.sin(viewAngle);
+        const px = x * cos - z * sin;
+        const pz = x * sin + z * cos;
+        return { x: cx + px * scale, y: cy - y * scale + (pz * scale * 0.2) };
+    }
+
+    function drawFace(pts, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        const first = project(...pts[0]);
+        ctx.moveTo(first.x, first.y);
+        for(let i=1; i<pts.length; i++) {
+            const p = project(...pts[i]);
+            ctx.lineTo(p.x, p.y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 1;
+
+        drawFace([[-30,0,-30], [30,0,-30], [30,0,30], [-30,0,30]], "#2d5a27");
+        drawFace([[0, 0.05, -1], [targetB, 0.05, -1], [targetB, 0.05, 1], [0, 0.05, 1]], "rgba(0, 0, 0, 0.8)");
+
+        const bw = 8; 
+        const bd = 6; 
+        drawFace([[-bw,0,-bd/2], [0,0,-bd/2], [0,targetH,-bd/2], [-bw,targetH,-bd/2]], "#7f8c8d");
+        drawFace([[-bw,targetH,-bd/2], [0,targetH,-bd/2], [0,targetH,bd/2], [-bw,targetH,bd/2]], "#95a5a6");
+        drawFace([[0,0,-bd/2], [0,targetH,-bd/2], [0,targetH,bd/2], [0,0,bd/2]], "#7f8c8d");
+        drawFace([[-bw,0,bd/2], [0,0,bd/2], [0,targetH,bd/2], [-bw,targetH,bd/2]], "#bdc3c7");
+
+        if (isLadderVisible) {
+            ctx.strokeStyle = "#f1c40f";
+            const lx = studentLength * Math.cos(leanAngle);
+            const ly = studentLength * Math.sin(leanAngle);
+            const startX = targetB;
+            const endX = targetB - lx;
+            const endY = ly;
+
+            [-0.8, 0.8].forEach(z => {
+                const p1 = project(startX, 0, z);
+                const p2 = project(endX, endY, z);
+                ctx.lineWidth = 6;
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+                
+                ctx.lineWidth = 2;
+                const rungs = Math.max(5, Math.floor(studentLength * 1.0));
+                for(let i=0.1; i<1; i += (1/rungs)) {
+                    const rx = startX + (endX - startX) * i;
+                    const ry = 0 + (endY - 0) * i;
+                    const pr1 = project(rx, ry, -0.8);
+                    const pr2 = project(rx, ry, 0.8);
+                    ctx.beginPath(); ctx.moveTo(pr1.x, pr1.y); ctx.lineTo(pr2.x, pr2.y); ctx.stroke();
+                }
+            });
+        }
+
+        if (showMath) {
+            ctx.fillStyle = "white";
+            ctx.font = "bold 16px Arial";
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = "black";
+            
+            const pa = project(1, targetH/2, bd/2);
+            ctx.fillText(`a = ${targetH} ft`, pa.x, pa.y);
+            
+            const pb = project(targetB/2, 0.5, 3);
+            ctx.fillText(`b = ${targetB} ft`, pb.x, pb.y);
+
+            if (isLadderVisible) {
+                ctx.fillStyle = "#f1c40f";
+                const pc = project(targetB - (studentLength * Math.cos(leanAngle))/2 + 2, (studentLength * Math.sin(leanAngle))/2 + 1, 0);
+                ctx.fillText(`c = ${targetC.toFixed(1)} ft`, pc.x, pc.y);
+            }
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
