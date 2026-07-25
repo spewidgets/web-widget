@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>iPhone AR Simulator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #05070a; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif; touch-action: none; }
+
+    #camera, #fallback {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #camera { background: #000; }
+
+    #fallback {
+      display: none;
+      background:
+        radial-gradient(circle at 50% 72%, rgba(70,130,180,.25), transparent 32%),
+        linear-gradient(180deg, #101a2c 0 50%, #253544 50% 100%);
+    }
+
+    #fallback::after {
+      content: "Camera preview unavailable — demo mode";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: rgba(255,255,255,.82);
+      background: rgba(0,0,0,.35);
+      backdrop-filter: blur(12px);
+      white-space: nowrap;
+    }
+
+    #shade {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at center, transparent 35%, rgba(0,0,0,.18) 78%, rgba(0,0,0,.42) 100%),
+        linear-gradient(180deg, rgba(0,0,0,.34), transparent 24%, transparent 76%, rgba(0,0,0,.42));
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+      perspective: 900px;
+      overflow: hidden;
+    }
+
+    #anchor {
+      position: absolute;
+      left: 50%;
+      top: 57%;
+      width: 150px;
+      height: 150px;
+      transform-style: preserve-3d;
+      transform: translate(-50%, -50%);
+      will-change: transform;
+    }
+
+    #shadow {
+      position: absolute;
+      left: 50%;
+      top: 78%;
+      width: 124px;
+      height: 42px;
+      transform: translate(-50%, -50%) rotateX(72deg);
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,.5), rgba(0,0,0,0) 70%);
+      filter: blur(7px);
+      opacity: .8;
+    }
+
+    #object {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      animation: float 3.8s ease-in-out infinite;
+      filter: drop-shadow(0 18px 22px rgba(0,0,0,.25));
+    }
+
+    .orb {
+      position: absolute;
+      inset: 12px;
+      border-radius: 34%;
+      background:
+        radial-gradient(circle at 34% 26%, rgba(255,255,255,.95), rgba(255,255,255,.28) 11%, transparent 22%),
+        radial-gradient(circle at 28% 20%, #83f7ff, #497cff 42%, #8f4dff 73%, #271863 100%);
+      box-shadow:
+        inset -18px -24px 30px rgba(15,10,80,.45),
+        inset 12px 12px 22px rgba(255,255,255,.18),
+        0 0 42px rgba(91,122,255,.52);
+      transform: rotateX(-12deg) rotateY(20deg) rotateZ(8deg);
+    }
+
+    .ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 164px;
+      height: 58px;
+      transform: translate(-50%, -50%) rotateX(68deg) rotateZ(-12deg) translateZ(6px);
+      border: 7px solid rgba(116,244,255,.86);
+      border-left-color: rgba(255,255,255,.22);
+      border-right-color: rgba(162,91,255,.75);
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgba(94,230,255,.7), inset 0 0 12px rgba(255,255,255,.4);
+    }
+
+    .dot {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 16px #71f8ff;
+    }
+    .dot.one { left: 10px; top: 27px; }
+    .dot.two { right: 4px; bottom: 32px; transform: scale(.65); }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0) rotateY(-5deg); }
+      50% { transform: translateY(-12px) rotateY(8deg); }
+    }
+
+    #reticle {
+      position: fixed;
+      left: 50%;
+      top: 57%;
+      width: 176px;
+      height: 176px;
+      transform: translate(-50%, -50%);
+      border: 1px solid rgba(255,255,255,.34);
+      border-radius: 50%;
+      pointer-events: none;
+      opacity: .7;
+    }
+
+    #reticle::before, #reticle::after {
+      content: "";
+      position: absolute;
+      background: rgba(255,255,255,.58);
+    }
+    #reticle::before { width: 18px; height: 1px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+    #reticle::after { width: 1px; height: 18px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+
+    .topbar {
+      position: fixed;
+      top: calc(var(--safe-top) + 10px);
+      left: calc(var(--safe-left) + 12px);
+      right: calc(var(--safe-right) + 12px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .brand, .pill {
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px 13px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 16px;
+      color: #fff;
+      background: rgba(12,15,23,.46);
+      backdrop-filter: blur(18px) saturate(145%);
+      box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    }
+
+    .brand { font-weight: 700; letter-spacing: -.2px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #45e48e; box-shadow: 0 0 10px #45e48e; }
+
+    button {
+      appearance: none;
+      border: 0;
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 15px;
+      background: rgba(12,15,23,.52);
+      border: 1px solid rgba(255,255,255,.18);
+      backdrop-filter: blur(18px) saturate(145%);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+
+    .bottom {
+      position: fixed;
+      left: calc(var(--safe-left) + 12px);
+      right: calc(var(--safe-right) + 12px);
+      bottom: calc(var(--safe-bottom) + 14px);
+      display: grid;
+      gap: 10px;
+    }
+
+    #hint {
+      justify-self: center;
+      max-width: 92vw;
+      padding: 9px 13px;
+      border-radius: 999px;
+      color: rgba(255,255,255,.9);
+      background: rgba(10,12,18,.5);
+      border: 1px solid rgba(255,255,255,.15);
+      backdrop-filter: blur(14px);
+      font-size: 13px;
+      text-align: center;
+      transition: opacity .25s ease;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-group {
+      display: flex;
+      gap: 8px;
+    }
+    .control-group.right { justify-content: flex-end; }
+
+    #placeBtn {
+      min-width: 116px;
+      min-height: 54px;
+      padding: 0 20px;
+      border-radius: 18px;
+      font-weight: 750;
+      letter-spacing: -.15px;
+      background: linear-gradient(135deg, rgba(65,116,255,.95), rgba(146,73,255,.95));
+      box-shadow: 0 12px 30px rgba(84,72,255,.35), inset 0 1px rgba(255,255,255,.35);
+    }
+
+    #permissionCard {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: min(92vw, 370px);
+      transform: translate(-50%, -50%);
+      padding: 22px;
+      border-radius: 26px;
+      color: #fff;
+      text-align: center;
+      background: rgba(13,16,24,.78);
+      border: 1px solid rgba(255,255,255,.18);
+      backdrop-filter: blur(26px) saturate(150%);
+      box-shadow: 0 24px 70px rgba(0,0,0,.38);
+      z-index: 20;
+    }
+
+    #permissionCard h1 { margin: 0 0 9px; font-size: 24px; letter-spacing: -.6px; }
+    #permissionCard p { margin: 0 0 17px; color: rgba(255,255,255,.72); line-height: 1.45; font-size: 15px; }
+    #startBtn {
+      width: 100%;
+      min-height: 52px;
+      border-radius: 16px;
+      background: #fff;
+      color: #10131a;
+      font-weight: 750;
+    }
+
+    #debug {
+      position: fixed;
+      right: 10px;
+      bottom: 90px;
+      font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: rgba(255,255,255,.62);
+      display: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #object { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <video id="camera" autoplay muted playsinline></video>
+  <div id="fallback"></div>
+  <div id="shade"></div>
+
+  <main id="scene" aria-label="Augmented reality simulation area">
+    <div id="anchor" role="img" aria-label="Virtual holographic orb">
+      <div id="shadow"></div>
+      <div id="object">
+        <div class="ring"></div>
+        <div class="orb"></div>
+        <div class="dot one"></div>
+        <div class="dot two"></div>
+      </div>
+    </div>
+    <div id="reticle"></div>
+  </main>
+
+  <header class="topbar">
+    <div class="brand"><span class="status-dot"></span> AR Simulator</div>
+    <button id="motionBtn" class="icon-btn" aria-label="Enable motion tracking" title="Enable motion tracking">◎</button>
+  </header>
+
+  <section class="bottom">
+    <div id="hint">Drag to move · Pinch to resize · Twist to rotate</div>
+    <div class="controls">
+      <div class="control-group">
+        <button id="minusBtn" class="icon-btn" aria-label="Make object smaller">−</button>
+        <button id="plusBtn" class="icon-btn" aria-label="Make object larger">＋</button>
+      </div>
+      <button id="placeBtn">Place object</button>
+      <div class="control-group right">
+        <button id="resetBtn" class="icon-btn" aria-label="Reset object">↺</button>
+        <button id="hideBtn" class="icon-btn" aria-label="Hide virtual object">◉</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="permissionCard">
+    <h1>Open AR camera</h1>
+    <p>This demo combines your iPhone camera with a touch-controlled virtual object. Camera and motion data stay in your browser.</p>
+    <button id="startBtn">Start AR simulation</button>
+  </div>
+
+  <div id="debug"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const video = document.getElementById('camera');
+      const fallback = document.getElementById('fallback');
+      const anchor = document.getElementById('anchor');
+      const object = document.getElementById('object');
+      const reticle = document.getElementById('reticle');
+      const permissionCard = document.getElementById('permissionCard');
+      const startBtn = document.getElementById('startBtn');
+      const motionBtn = document.getElementById('motionBtn');
+      const placeBtn = document.getElementById('placeBtn');
+      const plusBtn = document.getElementById('plusBtn');
+      const minusBtn = document.getElementById('minusBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const hideBtn = document.getElementById('hideBtn');
+      const hint = document.getElementById('hint');
+
+      const state = {
+        x: innerWidth * 0.5,
+        y: innerHeight * 0.57,
+        scale: 1,
+        rotation: 0,
+        tiltX: 0,
+        tiltY: 0,
+        visible: true,
+        placed: false,
+        pointers: new Map(),
+        gestureStart: null
+      };
+
+      function render() {
+        anchor.style.left = `${state.x}px`;
+        anchor.style.top = `${state.y}px`;
+        anchor.style.transform = `translate(-50%, -50%) scale(${state.scale}) rotate(${state.rotation}deg) rotateX(${state.tiltX}deg) rotateY(${state.tiltY}deg)`;
+        anchor.style.opacity = state.visible ? '1' : '0';
+        reticle.style.left = `${state.x}px`;
+        reticle.style.top = `${state.y}px`;
+        reticle.style.opacity = state.placed || !state.visible ? '0' : '.7';
+        hideBtn.textContent = state.visible ? '◉' : '○';
+      }
+
+      function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+
+      async function startCamera() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            },
+            audio: false
+          });
+          video.srcObject = stream;
+          await video.play();
+        } catch (error) {
+          console.warn('Camera unavailable:', error);
+          video.style.display = 'none';
+          fallback.style.display = 'block';
+          hint.textContent = 'Demo mode · Camera requires HTTPS and permission';
+        }
+      }
+
+      async function requestMotion() {
+        try {
+          if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const result = await DeviceOrientationEvent.requestPermission();
+            if (result !== 'granted') throw new Error('Motion permission not granted');
+          }
+          window.addEventListener('deviceorientation', onOrientation, true);
+          motionBtn.textContent = '●';
+          motionBtn.title = 'Motion tracking enabled';
+        } catch (error) {
+          console.warn(error);
+          hint.textContent = 'Motion permission was not enabled';
+        }
+      }
+
+      function onOrientation(event) {
+        if (event.beta == null || event.gamma == null) return;
+        state.tiltX = clamp((event.beta - 45) * 0.11, -12, 12);
+        state.tiltY = clamp(event.gamma * 0.13, -14, 14);
+        render();
+      }
+
+      function pointDistance(a, b) {
+        return Math.hypot(b.x - a.x, b.y - a.y);
+      }
+
+      function pointAngle(a, b) {
+        return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+      }
+
+      function pointCenter(a, b) {
+        return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      }
+
+      function onPointerDown(event) {
+        anchor.setPointerCapture?.(event.pointerId);
+        state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (state.pointers.size === 1) {
+          state.gestureStart = {
+            x: state.x,
+            y: state.y,
+            pointerX: event.clientX,
+            pointerY: event.clientY
+          };
+        } else if (state.pointers.size === 2) {
+          const [a, b] = [...state.pointers.values()];
+          state.gestureStart = {
+            distance: pointDistance(a, b),
+            angle: pointAngle(a, b),
+            center: pointCenter(a, b),
+            scale: state.scale,
+            rotation: state.rotation,
+            x: state.x,
+            y: state.y
+          };
+        }
+      }
+
+      function onPointerMove(event) {
+        if (!state.pointers.has(event.pointerId)) return;
+        state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+        if (state.pointers.size === 1 && state.gestureStart) {
+          state.x = clamp(state.gestureStart.x + event.clientX - state.gestureStart.pointerX, 30, innerWidth - 30);
+          state.y = clamp(state.gestureStart.y + event.clientY - state.gestureStart.pointerY, 80, innerHeight - 90);
+        } else if (state.pointers.size === 2 && state.gestureStart) {
+          const [a, b] = [...state.pointers.values()];
+          const center = pointCenter(a, b);
+          state.scale = clamp(state.gestureStart.scale * (pointDistance(a, b) / state.gestureStart.distance), 0.45, 2.6);
+          state.rotation = state.gestureStart.rotation + pointAngle(a, b) - state.gestureStart.angle;
+          state.x = clamp(state.gestureStart.x + center.x - state.gestureStart.center.x, 30, innerWidth - 30);
+          state.y = clamp(state.gestureStart.y + center.y - state.gestureStart.center.y, 80, innerHeight - 90);
+        }
+        render();
+      }
+
+      function onPointerUp(event) {
+        state.pointers.delete(event.pointerId);
+        if (state.pointers.size === 1) {
+          const [p] = [...state.pointers.values()];
+          state.gestureStart = { x: state.x, y: state.y, pointerX: p.x, pointerY: p.y };
+        } else {
+          state.gestureStart = null;
+        }
+      }
+
+      anchor.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+
+      document.getElementById('scene').addEventListener('pointerdown', (event) => {
+        if (event.target.closest('#anchor')) return;
+        state.x = event.clientX;
+        state.y = event.clientY;
+        state.placed = true;
+        render();
+      });
+
+      startBtn.addEventListener('click', async () => {
+        permissionCard.style.display = 'none';
+        await startCamera();
+        render();
+      });
+
+      motionBtn.addEventListener('click', requestMotion);
+
+      placeBtn.addEventListener('click', () => {
+        state.placed = true;
+        reticle.style.opacity = '0';
+        placeBtn.textContent = 'Object placed';
+        hint.textContent = 'Tap anywhere to reposition';
+        setTimeout(() => { placeBtn.textContent = 'Place object'; }, 1200);
+      });
+
+      plusBtn.addEventListener('click', () => { state.scale = clamp(state.scale + 0.15, 0.45, 2.6); render(); });
+      minusBtn.addEventListener('click', () => { state.scale = clamp(state.scale - 0.15, 0.45, 2.6); render(); });
+
+      resetBtn.addEventListener('click', () => {
+        state.x = innerWidth * 0.5;
+        state.y = innerHeight * 0.57;
+        state.scale = 1;
+        state.rotation = 0;
+        state.tiltX = 0;
+        state.tiltY = 0;
+        state.visible = true;
+        state.placed = false;
+        hint.textContent = 'Drag to move · Pinch to resize · Twist to rotate';
+        render();
+      });
+
+      hideBtn.addEventListener('click', () => { state.visible = !state.visible; render(); });
+
+      window.addEventListener('resize', () => {
+        state.x = clamp(state.x, 30, innerWidth - 30);
+        state.y = clamp(state.y, 80, innerHeight - 90);
+        render();
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && video.srcObject) {
+          video.srcObject.getTracks().forEach(track => track.stop());
+        }
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
