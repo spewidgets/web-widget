@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Water Cycle</title>
+  <style>
+    :root {
+      --speed: 1;
+      --sky-top: #4db8ff;
+      --sky-bottom: #dff6ff;
+      --water: #168bd2;
+      --water-dark: #08679f;
+      --land: #65a94f;
+      --land-dark: #3d7d34;
+      --sun: #ffd34d;
+      --cloud: #f8fbff;
+      --ink: #123247;
+      --panel: rgba(255,255,255,.88);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      overflow-x: hidden;
+      font-family: Inter, ui-rounded, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 15%, rgba(255,255,255,.85), transparent 24%),
+        linear-gradient(145deg, #dff7ff, #b7e8ff 48%, #e7fbff);
+    }
+
+    .widget {
+      width: min(1100px, 100%);
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 28px;
+      overflow: hidden;
+      background: rgba(255,255,255,.42);
+      box-shadow: 0 24px 70px rgba(26, 103, 146, .22);
+      backdrop-filter: blur(14px);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 20px 24px;
+      background: var(--panel);
+      border-bottom: 1px solid rgba(18,50,71,.1);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.25rem, 2.7vw, 2rem);
+      line-height: 1.1;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #486778;
+      font-size: .95rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 9px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: #153447;
+      background: #e8f7ff;
+      font: inherit;
+      font-weight: 750;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(31,124,174,.16);
+      transition: transform .18s ease, background .18s ease;
+    }
+
+    button:hover { transform: translateY(-2px); background: #d8f1ff; }
+    button.active { color: white; background: #137fb9; }
+
+    .scene {
+      position: relative;
+      isolation: isolate;
+      min-height: 620px;
+      overflow: hidden;
+      background: linear-gradient(var(--sky-top), var(--sky-bottom) 68%);
+    }
+
+    .scene.paused *,
+    .scene.paused *::before,
+    .scene.paused *::after {
+      animation-play-state: paused !important;
+    }
+
+    .sun {
+      position: absolute;
+      top: 55px;
+      left: 8%;
+      width: 92px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--sun);
+      box-shadow: 0 0 0 18px rgba(255,211,77,.2), 0 0 55px rgba(255,214,80,.78);
+      animation: sunPulse calc(3s / var(--speed)) ease-in-out infinite;
+    }
+
+    .sun::before {
+      content: "";
+      position: absolute;
+      inset: -34px;
+      background: repeating-conic-gradient(from 0deg, rgba(255,210,63,.8) 0 4deg, transparent 4deg 28deg);
+      -webkit-mask: radial-gradient(circle, transparent 0 48px, #000 49px);
+      mask: radial-gradient(circle, transparent 0 48px, #000 49px);
+      animation: spin calc(18s / var(--speed)) linear infinite;
+    }
+
+    .cloud {
+      position: absolute;
+      top: 95px;
+      left: 54%;
+      width: 230px;
+      height: 70px;
+      border-radius: 60px;
+      background: var(--cloud);
+      filter: drop-shadow(0 12px 12px rgba(56,98,120,.18));
+      animation: cloudDrift calc(6s / var(--speed)) ease-in-out infinite alternate;
+    }
+
+    .cloud::before,
+    .cloud::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: inherit;
+    }
+
+    .cloud::before { width: 100px; height: 100px; left: 38px; bottom: 18px; }
+    .cloud::after  { width: 124px; height: 124px; right: 28px; bottom: 10px; }
+
+    .mountain {
+      position: absolute;
+      right: -4%;
+      bottom: 150px;
+      width: 58%;
+      height: 280px;
+      background: linear-gradient(135deg, #5f9470, #416d52);
+      clip-path: polygon(0 100%, 26% 42%, 41% 64%, 62% 8%, 100% 100%);
+    }
+
+    .snow {
+      position: absolute;
+      right: 10.4%;
+      bottom: 350px;
+      width: 160px;
+      height: 82px;
+      background: #eefaff;
+      clip-path: polygon(0 100%, 49% 0, 100% 100%, 70% 72%, 54% 82%, 36% 62%, 20% 78%);
+      opacity: .94;
+    }
+
+    .hill {
+      position: absolute;
+      left: -8%;
+      right: -8%;
+      bottom: 103px;
+      height: 175px;
+      border-radius: 50% 50% 0 0 / 85% 85% 0 0;
+      background: linear-gradient(#72bd58, var(--land-dark));
+    }
+
+    .lake {
+      position: absolute;
+      left: -8%;
+      bottom: -25px;
+      width: 72%;
+      height: 215px;
+      border-radius: 50% 58% 0 0 / 30% 36% 0 0;
+      overflow: hidden;
+      background: linear-gradient(180deg, #2aa8e8, var(--water-dark));
+      box-shadow: inset 0 16px 26px rgba(255,255,255,.2);
+    }
+
+    .lake::before,
+    .lake::after {
+      content: "";
+      position: absolute;
+      left: -10%;
+      width: 120%;
+      height: 34px;
+      border-radius: 50%;
+      border-top: 4px solid rgba(255,255,255,.4);
+      animation: waves calc(3s / var(--speed)) linear infinite;
+    }
+
+    .lake::before { top: 28px; }
+    .lake::after { top: 80px; animation-delay: -1.3s; opacity: .7; }
+
+    .river {
+      position: absolute;
+      right: 16%;
+      bottom: 0;
+      width: 190px;
+      height: 290px;
+      background: linear-gradient(90deg, transparent 0 22%, #4ab6e9 25% 68%, transparent 72%);
+      clip-path: polygon(38% 0, 72% 0, 65% 34%, 80% 62%, 59% 100%, 14% 100%, 43% 61%, 30% 33%);
+      opacity: .9;
+    }
+
+    .tree {
+      position: absolute;
+      bottom: 126px;
+      width: 18px;
+      height: 75px;
+      border-radius: 7px;
+      background: #7b4b2a;
+    }
+
+    .tree::before {
+      content: "";
+      position: absolute;
+      width: 92px;
+      height: 110px;
+      left: 50%;
+      bottom: 42px;
+      transform: translateX(-50%);
+      border-radius: 52% 48% 55% 45%;
+      background: radial-gradient(circle at 35% 30%, #74c95e, #2f873f 68%);
+      box-shadow: 0 8px 18px rgba(25,93,49,.18);
+    }
+
+    .tree.one { left: 58%; transform: scale(.78); }
+    .tree.two { left: 72%; transform: scale(.58); }
+    .tree.three { left: 45%; transform: scale(.47); }
+
+    .vapor {
+      position: absolute;
+      left: 20%;
+      bottom: 150px;
+      width: 170px;
+      height: 240px;
+      pointer-events: none;
+    }
+
+    .vapor span {
+      position: absolute;
+      bottom: 0;
+      left: calc(var(--x) * 1%);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.76);
+      box-shadow: 0 0 14px rgba(255,255,255,.85);
+      animation: evaporate calc((3.6s + var(--d) * .25s) / var(--speed)) ease-in infinite;
+      animation-delay: calc(var(--d) * -.36s);
+    }
+
+    .rain {
+      position: absolute;
+      top: 150px;
+      left: 59%;
+      width: 190px;
+      height: 245px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .rain span {
+      position: absolute;
+      top: -30px;
+      left: calc(var(--x) * 1%);
+      width: 4px;
+      height: 24px;
+      border-radius: 5px;
+      background: linear-gradient(transparent, rgba(28,133,203,.92));
+      transform: rotate(8deg);
+      animation: rainfall calc((1.15s + var(--d) * .06s) / var(--speed)) linear infinite;
+      animation-delay: calc(var(--d) * -.17s);
+    }
+
+    .flow-dots {
+      position: absolute;
+      right: 19%;
+      bottom: 80px;
+      width: 90px;
+      height: 165px;
+      transform: rotate(12deg);
+      pointer-events: none;
+    }
+
+    .flow-dots span {
+      position: absolute;
+      top: 0;
+      left: 45%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(235,252,255,.85);
+      animation: runoff calc(2s / var(--speed)) linear infinite;
+      animation-delay: calc(var(--i) * -.3s);
+    }
+
+    .label {
+      position: absolute;
+      z-index: 8;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 13px;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: 14px;
+      background: rgba(255,255,255,.86);
+      box-shadow: 0 9px 24px rgba(20,77,107,.14);
+      backdrop-filter: blur(8px);
+      font-weight: 800;
+      font-size: .9rem;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .label:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 14px 28px rgba(20,77,107,.2);
+    }
+
+    .label small {
+      display: block;
+      margin-top: 2px;
+      max-width: 170px;
+      color: #557183;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .icon {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      background: #e6f7ff;
+    }
+
+    .evap-label { left: 9%; bottom: 260px; }
+    .cond-label { right: 7%; top: 34px; }
+    .precip-label { right: 6%; top: 245px; }
+    .collect-label { left: 6%; bottom: 34px; }
+
+    .cycle-arrow {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .arrow-path {
+      fill: none;
+      stroke: rgba(255,255,255,.72);
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 10 13;
+      animation: dash calc(2.3s / var(--speed)) linear infinite;
+      filter: drop-shadow(0 2px 2px rgba(27,92,124,.22));
+    }
+
+    .footer {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: rgba(18,50,71,.1);
+      border-top: 1px solid rgba(18,50,71,.08);
+    }
+
+    .stage {
+      padding: 15px 16px;
+      background: rgba(255,255,255,.9);
+      text-align: center;
+    }
+
+    .stage strong { display: block; margin-bottom: 3px; }
+    .stage span { color: #5a7382; font-size: .82rem; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes sunPulse { 50% { transform: scale(1.06); } }
+    @keyframes cloudDrift { to { transform: translateX(24px) translateY(5px); } }
+    @keyframes waves { to { transform: translateX(55px); } }
+    @keyframes dash { to { stroke-dashoffset: -46; } }
+
+    @keyframes evaporate {
+      0%   { transform: translate(0, 0) scale(.55); opacity: 0; }
+      15%  { opacity: .8; }
+      65%  { opacity: .65; }
+      100% { transform: translate(30px, -225px) scale(1.35); opacity: 0; }
+    }
+
+    @keyframes rainfall {
+      from { transform: translateY(-30px) rotate(8deg); opacity: 0; }
+      14% { opacity: 1; }
+      to { transform: translateY(285px) rotate(8deg); opacity: .15; }
+    }
+
+    @keyframes runoff {
+      from { transform: translate(0, 0); opacity: 0; }
+      15% { opacity: 1; }
+      to { transform: translate(-58px, 165px); opacity: 0; }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 10px; }
+      header { align-items: flex-start; flex-direction: column; }
+      .controls { justify-content: flex-start; }
+      .scene { min-height: 670px; }
+      .cloud { left: 42%; transform: scale(.82); }
+      .mountain { width: 80%; }
+      .evap-label { left: 3%; }
+      .cond-label { right: 3%; top: 38px; }
+      .precip-label { right: 2%; }
+      .label small { max-width: 120px; }
+      .footer { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="widget" aria-label="Animated water cycle">
+    <header>
+      <div>
+        <h1>💧 The Water Cycle</h1>
+        <p>Follow water as it moves through Earth’s atmosphere and surface.</p>
+      </div>
+      <div class="controls" aria-label="Animation controls">
+        <button id="toggle" type="button">⏸ Pause</button>
+        <button class="speed" data-speed=".65" type="button">Slow</button>
+        <button class="speed active" data-speed="1" type="button">Normal</button>
+        <button class="speed" data-speed="1.6" type="button">Fast</button>
+      </div>
+    </header>
+
+    <section class="scene" id="scene">
+      <div class="sun" aria-hidden="true"></div>
+      <div class="cloud" aria-hidden="true"></div>
+      <div class="mountain" aria-hidden="true"></div>
+      <div class="snow" aria-hidden="true"></div>
+      <div class="hill" aria-hidden="true"></div>
+      <div class="lake" aria-hidden="true"></div>
+      <div class="river" aria-hidden="true"></div>
+      <div class="tree one" aria-hidden="true"></div>
+      <div class="tree two" aria-hidden="true"></div>
+      <div class="tree three" aria-hidden="true"></div>
+
+      <div class="vapor" aria-hidden="true">
+        <span style="--x:5;--d:0"></span><span style="--x:20;--d:1"></span>
+        <span style="--x:36;--d:2"></span><span style="--x:52;--d:3"></span>
+        <span style="--x:68;--d:4"></span><span style="--x:83;--d:5"></span>
+        <span style="--x:27;--d:6"></span><span style="--x:60;--d:7"></span>
+        <span style="--x:44;--d:8"></span>
+      </div>
+
+      <div class="rain" aria-hidden="true">
+        <span style="--x:4;--d:0"></span><span style="--x:14;--d:1"></span>
+        <span style="--x:24;--d:2"></span><span style="--x:34;--d:3"></span>
+        <span style="--x:44;--d:4"></span><span style="--x:54;--d:5"></span>
+        <span style="--x:64;--d:6"></span><span style="--x:74;--d:7"></span>
+        <span style="--x:84;--d:8"></span><span style="--x:94;--d:9"></span>
+        <span style="--x:19;--d:10"></span><span style="--x:49;--d:11"></span>
+        <span style="--x:79;--d:12"></span>
+      </div>
+
+      <div class="flow-dots" aria-hidden="true">
+        <span style="--i:0"></span><span style="--i:1"></span>
+        <span style="--i:2"></span><span style="--i:3"></span>
+        <span style="--i:4"></span><span style="--i:5"></span>
+      </div>
+
+      <svg class="cycle-arrow" viewBox="0 0 1100 620" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <marker id="arrowhead" markerWidth="11" markerHeight="11" refX="8" refY="5.5" orient="auto">
+            <path d="M0,0 L9,5.5 L0,11 Z" fill="rgba(255,255,255,.82)"/>
+          </marker>
+        </defs>
+        <path class="arrow-path" marker-end="url(#arrowhead)"
+          d="M260 420 C255 285, 315 180, 485 155" />
+        <path class="arrow-path" marker-end="url(#arrowhead)"
+          d="M570 135 C715 105, 815 125, 845 190" />
+        <path class="arrow-path" marker-end="url(#arrowhead)"
+          d="M850 220 C875 310, 855 385, 795 430" />
+        <path class="arrow-path" marker-end="url(#arrowhead)"
+          d="M750 485 C615 555, 435 550, 310 505" />
+      </svg>
+
+      <div class="label evap-label">
+        <span class="icon">♨️</span>
+        <span>Evaporation<small>Sunlight heats liquid water into water vapor.</small></span>
+      </div>
+
+      <div class="label cond-label">
+        <span class="icon">☁️</span>
+        <span>Condensation<small>Cooling vapor forms tiny droplets and clouds.</small></span>
+      </div>
+
+      <div class="label precip-label">
+        <span class="icon">🌧️</span>
+        <span>Precipitation<small>Water falls as rain, snow, sleet, or hail.</small></span>
+      </div>
+
+      <div class="label collect-label">
+        <span class="icon">🌊</span>
+        <span>Collection<small>Water gathers in rivers, lakes, oceans, and soil.</small></span>
+      </div>
+    </section>
+
+    <section class="footer" aria-label="Water cycle stages">
+      <div class="stage"><strong>1. Evaporation</strong><span>Liquid → gas</span></div>
+      <div class="stage"><strong>2. Condensation</strong><span>Gas → droplets</span></div>
+      <div class="stage"><strong>3. Precipitation</strong><span>Clouds release water</span></div>
+      <div class="stage"><strong>4. Collection</strong><span>Water returns and gathers</span></div>
+    </section>
+  </main>
+
+  <script>
+    const scene = document.getElementById("scene");
+    const toggle = document.getElementById("toggle");
+    const speedButtons = document.querySelectorAll(".speed");
+
+    toggle.addEventListener("click", () => {
+      const paused = scene.classList.toggle("paused");
+      toggle.textContent = paused ? "▶ Play" : "⏸ Pause";
+      toggle.setAttribute("aria-pressed", paused);
+    });
+
+    speedButtons.forEach(button => {
+      button.addEventListener("click", () => {
+        document.documentElement.style.setProperty("--speed", button.dataset.speed);
+        speedButtons.forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>
