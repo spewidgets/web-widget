@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rhyme Monster Academy</title>
+    <style>
+        :root {
+            --monster-color: #8e44ad;
+            --accent-color: #2ecc71;
+            --bg-color: #f0f3f5;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        #widget-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        /* The Monster */
+        .monster-box {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 20px;
+        }
+
+        .monster-body {
+            width: 100%;
+            height: 100%;
+            background-color: var(--monster-color);
+            border-radius: 50% 50% 20% 20%;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .eye {
+            position: absolute;
+            background: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            top: 40px;
+        }
+
+        .eye::after {
+            content: '';
+            position: absolute;
+            background: black;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            top: 9px;
+            left: 9px;
+        }
+
+        .eye.left { left: 35px; }
+        .eye.right { right: 35px; }
+
+        .mouth {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 20px;
+            background: #2c3e50;
+            border-radius: 0 0 30px 30px;
+            transition: height 0.3s;
+        }
+
+        .monster-body.eating .mouth {
+            height: 40px;
+        }
+
+        /* UI Elements */
+        .instruction {
+            font-size: 1.2rem;
+            color: #34495e;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .word-btn {
+            padding: 15px 10px;
+            font-size: 1.1rem;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .word-btn:hover {
+            border-color: var(--monster-color);
+            background-color: #fdf7ff;
+        }
+
+        .word-btn.correct {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        .feedback {
+            height: 24px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        #reset-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="widget-container">
+    <div class="monster-box">
+        <div id="monster" class="monster-body">
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="mouth"></div>
+        </div>
+    </div>
+
+    <div class="instruction">Feed the monster words that rhyme with: <br><span id="target-rhyme" style="color: var(--monster-color); font-size: 1.5rem;">...</span></div>
+    
+    <div class="word-grid" id="word-container">
+        </div>
+
+    <div class="feedback" id="feedback"></div>
+    <button id="reset-btn" onclick="startNewRound()">Play Next Round!</button>
+</div>
+
+<script>
+    const levels = [
+        { target: "Cat", rhyme: "at", choices: ["Hat", "Bat", "Mat", "Sat", "Dog"] },
+        { target: "Cake", rhyme: "ake", choices: ["Bake", "Lake", "Rake", "Snake", "Fish"] },
+        { target: "Big", rhyme: "ig", choices: ["Pig", "Wig", "Dig", "Fig", "Sun"] },
+        { target: "Moon", rhyme: "oon", choices: ["Spoon", "Noon", "Soon", "Tune", "Star"] },
+        { target: "Red", rhyme: "ed", choices: ["Bed", "Fed", "Led", "Shed", "Blue"] }
+    ];
+
+    let currentLevel = 0;
+    let rhymingWordsFound = 0;
+
+    const monster = document.getElementById('monster');
+    const wordContainer = document.getElementById('word-container');
+    const targetDisplay = document.getElementById('target-rhyme');
+    const feedback = document.getElementById('feedback');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function startNewRound() {
+        // Reset state
+        rhymingWordsFound = 0;
+        feedback.textContent = "";
+        resetBtn.style.display = "none";
+        
+        // Pick a random level (or cycle through)
+        const level = levels[currentLevel % levels.length];
+        targetDisplay.textContent = level.target;
+        
+        // Shuffle choices
+        const shuffledChoices = [...level.choices].sort(() => Math.random() - 0.5);
+        
+        // Clear and build buttons
+        wordContainer.innerHTML = '';
+        shuffledChoices.forEach(word => {
+            const btn = document.createElement('button');
+            btn.className = 'word-btn';
+            btn.textContent = word;
+            btn.onclick = () => checkWord(word, level.rhyme, btn);
+            wordContainer.appendChild(btn);
+        });
+
+        currentLevel++;
+    }
+
+    function checkWord(word, suffix, btn) {
+        // Simple rhyme check: does it end with the same suffix?
+        // Note: For complex English phonics, a mapping like the 'levels' array is safer.
+        const isCorrect = word.toLowerCase().endsWith(suffix);
+
+        if (isCorrect) {
+            rhymingWordsFound++;
+            monster.classList.add('eating');
+            feedback.style.color = "var(--accent-color)";
+            feedback.textContent = "YUM! That rhymes!";
+            
+            // "Eat" the word
+            btn.classList.add('correct');
+
+            setTimeout(() => {
+                monster.classList.remove('eating');
+            }, 500);
+
+            if (rhymingWordsFound === 4) {
+                feedback.textContent = "Great job! The monster is full!";
+                resetBtn.style.display = "inline-block";
+            }
+        } else {
+            feedback.style.color = "#e74c3c";
+            feedback.textContent = "Oops! That doesn't rhyme.";
+            monster.style.transform = "translateX(5px)";
+            setTimeout(() => monster.style.transform = "translateX(0)", 100);
+        }
+    }
+
+    // Initialize the first round
+    startNewRound();
+</script>
+
+</body>
+</html>
