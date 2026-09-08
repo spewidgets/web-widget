@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grocery Store Talker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #F5F7F4;
+    --panel: #FFFFFF;
+    --ink: #263329;
+    --ink-soft: #5C6B61;
+    --line: #DCE3DD;
+
+    --noun: #C97A2E;      /* food items */
+    --noun-dark: #9B5D1F;
+    --core: #3F7D5A;      /* I want / more / all done */
+    --core-dark: #2E5D42;
+    --social: #B9587A;    /* please / thank you */
+    --social-dark: #8F3F5C;
+    --ask: #6C5B9C;       /* where is / help */
+    --ask-dark: #4F4074;
+
+    --speak: #1F8A70;
+    --speak-dark: #166B57;
+    --clear: #B4483F;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    font-family: 'Nunito', sans-serif;
+    color: var(--ink);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding: 18px;
+  }
+
+  .board{
+    width:100%;
+    max-width: 720px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  header{
+    text-align:left;
+    padding: 4px 2px 0 2px;
+  }
+  header h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size: 1.7rem;
+    margin: 0 0 2px 0;
+    letter-spacing: 0.2px;
+  }
+  header p{
+    margin:0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+  }
+
+  /* Sentence strip */
+  .strip{
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .strip-words{
+    min-height: 56px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:8px;
+    padding: 4px 2px;
+  }
+  .strip-placeholder{
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+    font-style: normal;
+  }
+  .strip-chip{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:600;
+    font-size: 1.05rem;
+    padding: 6px 14px;
+    border-radius: 999px;
+    color:#fff;
+    white-space:nowrap;
+  }
+  .strip-actions{
+    display:flex;
+    gap:8px;
+  }
+  .strip-actions button{
+    flex:1;
+    border:none;
+    border-radius: 12px;
+    padding: 12px 10px;
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size: 1rem;
+    color:#fff;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transition: transform 0.08s ease, filter 0.15s ease;
+  }
+  .strip-actions button:active{ transform: scale(0.97); }
+
+  .btn-speak{ background: var(--speak); flex:2; }
+  .btn-speak:hover{ background: var(--speak-dark); }
+  .btn-undo{ background: #8B9A90; }
+  .btn-undo:hover{ filter: brightness(0.92); }
+  .btn-clear{ background: var(--clear); }
+  .btn-clear:hover{ filter: brightness(0.92); }
+
+  /* Core word row */
+  section.core{
+    background: var(--panel);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 10px;
+  }
+  .section-label{
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    font-weight:700;
+    margin: 2px 6px 8px 6px;
+  }
+  .core-grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  /* Category tabs */
+  .tabs{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding: 2px 2px 4px 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab{
+    flex: 0 0 auto;
+    border: 2px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size: 0.95rem;
+    padding: 9px 16px;
+    border-radius: 12px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .tab[aria-selected="true"]{
+    background: var(--noun);
+    border-color: var(--noun);
+    color:#fff;
+  }
+
+  /* Item grid */
+  .item-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .tile{
+    border: none;
+    border-radius: 16px;
+    padding: 14px 6px 10px 6px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    cursor:pointer;
+    color:#fff;
+    transition: transform 0.08s ease, filter 0.15s ease;
+    min-height: 92px;
+  }
+  .tile:active{ transform: scale(0.95); }
+  .tile .emoji{ font-size: 2rem; line-height:1; }
+  .tile .label{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700;
+    font-size: 0.92rem;
+    text-align:center;
+  }
+
+  .tile-noun{ background: var(--noun); }
+  .tile-noun:hover{ background: var(--noun-dark); }
+  .tile-core{ background: var(--core); }
+  .tile-core:hover{ background: var(--core-dark); }
+  .tile-social{ background: var(--social); }
+  .tile-social:hover{ background: var(--social-dark); }
+  .tile-ask{ background: var(--ask); }
+  .tile-ask:hover{ background: var(--ask-dark); }
+
+  button:focus-visible, .tab:focus-visible{
+    outline: 3px solid #1F5AA6;
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 420px){
+    .core-grid{ grid-template-columns: repeat(2, 1fr); }
+    .item-grid{ grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="board">
+
+  <header>
+    <h1>Grocery Store Talker</h1>
+    <p>Tap words to build what you want to say. Tap "Speak" to say it out loud.</p>
+  </header>
+
+  <!-- Sentence strip -->
+  <div class="strip">
+    <div class="strip-words" id="stripWords" aria-live="polite">
+      <span class="strip-placeholder" id="placeholder">Tap words below to start...</span>
+    </div>
+    <div class="strip-actions">
+      <button class="btn-undo" id="btnUndo" aria-label="Remove last word">⌫ Undo</button>
+      <button class="btn-speak" id="btnSpeak" aria-label="Speak sentence">🔊 Speak</button>
+      <button class="btn-clear" id="btnClear" aria-label="Clear sentence">🗑 Clear</button>
+    </div>
+  </div>
+
+  <!-- Core words, always visible -->
+  <section class="core">
+    <div class="section-label">CORE WORDS</div>
+    <div class="core-grid" id="coreGrid"></div>
+  </section>
+
+  <!-- Category tabs + item grid -->
+  <section>
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="item-grid" id="itemGrid" style="margin-top:10px;"></div>
+  </section>
+
+</div>
+
+<script>
+  const coreWords = [
+    { label: "I want", emoji: "👉", type: "core" },
+    { label: "More", emoji: "➕", type: "core" },
+    { label: "All done", emoji: "✅", type: "core" },
+    { label: "No thank you", emoji: "🚫", type: "core" },
+    { label: "Please", emoji: "🙏", type: "social" },
+    { label: "Thank you", emoji: "😊", type: "social" },
+    { label: "Where is", emoji: "🔍", type: "ask" },
+    { label: "Help", emoji: "🆘", type: "ask" },
+  ];
+
+  const categories = {
+    "Fruits": [
+      { label: "Apple", emoji: "🍎" },
+      { label: "Banana", emoji: "🍌" },
+      { label: "Orange", emoji: "🍊" },
+      { label: "Grapes", emoji: "🍇" },
+      { label: "Strawberries", emoji: "🍓" },
+      { label: "Watermelon", emoji: "🍉" },
+    ],
+    "Vegetables": [
+      { label: "Carrots", emoji: "🥕" },
+      { label: "Broccoli", emoji: "🥦" },
+      { label: "Corn", emoji: "🌽" },
+      { label: "Potato", emoji: "🥔" },
+      { label: "Tomato", emoji: "🍅" },
+      { label: "Cucumber", emoji: "🥒" },
+    ],
+    "Snacks": [
+      { label: "Popcorn", emoji: "🍿" },
+      { label: "Cookies", emoji: "🍪" },
+      { label: "Pretzels", emoji: "🥨" },
+      { label: "Chocolate", emoji: "🍫" },
+      { label: "Chips", emoji: "🍟" },
+      { label: "Nuts", emoji: "🥜" },
+    ],
+    "Drinks": [
+      { label: "Water", emoji: "💧" },
+      { label: "Juice", emoji: "🧃" },
+      { label: "Soda", emoji: "🥤" },
+      { label: "Lemonade", emoji: "🍋" },
+      { label: "Iced Tea", emoji: "🧊" },
+      { label: "Hot Chocolate", emoji: "☕" },
+    ],
+    "Bakery": [
+      { label: "Bread", emoji: "🍞" },
+      { label: "Bagel", emoji: "🥯" },
+      { label: "Muffin", emoji: "🧁" },
+      { label: "Donut", emoji: "🍩" },
+      { label: "Croissant", emoji: "🥐" },
+      { label: "Pie", emoji: "🥧" },
+    ],
+    "Dairy": [
+      { label: "Milk", emoji: "🥛" },
+      { label: "Cheese", emoji: "🧀" },
+      { label: "Yogurt", emoji: "🥣" },
+      { label: "Eggs", emoji: "🥚" },
+      { label: "Butter", emoji: "🧈" },
+      { label: "Ice Cream", emoji: "🍦" },
+    ],
+  };
+
+  let sentence = [];
+
+  const stripWords = document.getElementById('stripWords');
+  const placeholder = document.getElementById('placeholder');
+  const coreGrid = document.getElementById('coreGrid');
+  const tabsEl = document.getElementById('tabs');
+  const itemGrid = document.getElementById('itemGrid');
+
+  function renderStrip(){
+    stripWords.innerHTML = '';
+    if(sentence.length === 0){
+      stripWords.appendChild(placeholder);
+      return;
+    }
+    sentence.forEach(word => {
+      const chip = document.createElement('span');
+      chip.className = 'strip-chip';
+      chip.style.background = colorFor(word.type);
+      chip.textContent = word.emoji + ' ' + word.label;
+      stripWords.appendChild(chip);
+    });
+  }
+
+  function colorFor(type){
+    switch(type){
+      case 'core': return getComputedStyle(document.documentElement).getPropertyValue('--core');
+      case 'social': return getComputedStyle(document.documentElement).getPropertyValue('--social');
+      case 'ask': return getComputedStyle(document.documentElement).getPropertyValue('--ask');
+      default: return getComputedStyle(document.documentElement).getPropertyValue('--noun');
+    }
+  }
+
+  function addWord(word){
+    sentence.push(word);
+    renderStrip();
+  }
+
+  function renderCore(){
+    coreGrid.innerHTML = '';
+    coreWords.forEach(word => {
+      const btn = document.createElement('button');
+      btn.className = 'tile tile-' + word.type;
+      btn.innerHTML = `<span class="emoji">${word.emoji}</span><span class="label">${word.label}</span>`;
+      btn.addEventListener('click', () => addWord({ ...word }));
+      coreGrid.appendChild(btn);
+    });
+  }
+
+  function renderTabs(){
+    tabsEl.innerHTML = '';
+    Object.keys(categories).forEach((cat, i) => {
+      const tab = document.createElement('button');
+      tab.className = 'tab';
+      tab.textContent = cat;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+        tab.setAttribute('aria-selected', 'true');
+        renderItems(cat);
+      });
+      tabsEl.appendChild(tab);
+    });
+  }
+
+  function renderItems(cat){
+    itemGrid.innerHTML = '';
+    categories[cat].forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'tile tile-noun';
+      btn.innerHTML = `<span class="emoji">${item.emoji}</span><span class="label">${item.label}</span>`;
+      btn.addEventListener('click', () => addWord({ ...item, type: 'noun' }));
+      itemGrid.appendChild(btn);
+    });
+  }
+
+  document.getElementById('btnUndo').addEventListener('click', () => {
+    sentence.pop();
+    renderStrip();
+  });
+
+  document.getElementById('btnClear').addEventListener('click', () => {
+    sentence = [];
+    renderStrip();
+  });
+
+  document.getElementById('btnSpeak').addEventListener('click', () => {
+    if(sentence.length === 0) return;
+    const text = sentence.map(w => w.label).join(' ');
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 0.95;
+      window.speechSynthesis.speak(utter);
+    }
+  });
+
+  renderCore();
+  renderTabs();
+  renderItems(Object.keys(categories)[0]);
+  renderStrip();
+</script>
+
+</body>
+</html>
