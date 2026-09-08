@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emotion Match</title>
+  <style>
+    :root {
+      --bg: #f7fbff;
+      --card: #ffffff;
+      --text: #17324d;
+      --muted: #5f7488;
+      --primary: #4b7bec;
+      --primary-dark: #345fc2;
+      --success: #2e9d65;
+      --border: #dfeaf4;
+      --shadow: 0 12px 30px rgba(24, 61, 92, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #eef8ff 0%, var(--bg) 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .app {
+      width: min(860px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+    }
+
+    .subtitle {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: .98rem;
+    }
+
+    .practice-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      align-items: stretch;
+      margin-bottom: 12px;
+    }
+
+    .emotion-card,
+    .camera-wrap {
+      border: 3px solid var(--border);
+      border-radius: 24px;
+      min-height: 300px;
+      overflow: hidden;
+      background: #fbfdff;
+    }
+
+    .emotion-card {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .emoji {
+      font-size: clamp(5.5rem, 18vw, 9rem);
+      line-height: 1;
+      margin: 4px 0 10px;
+      user-select: none;
+    }
+
+    .emotion-word {
+      font-size: clamp(1.8rem, 6vw, 3rem);
+      font-weight: 800;
+      text-transform: capitalize;
+    }
+
+    .camera-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f3f7fb;
+      position: relative;
+    }
+
+    .camera-placeholder {
+      color: var(--muted);
+      font-weight: 700;
+      padding: 20px;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      min-height: 300px;
+      max-height: 360px;
+      background: #111;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: none;
+    }
+
+    video.visible { display: block; }
+
+    .prompt {
+      font-size: clamp(1.2rem, 4vw, 1.8rem);
+      font-weight: 800;
+      margin: 10px 0 8px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 16px;
+      min-height: 50px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .primary:hover { background: var(--primary-dark); }
+
+    .secondary {
+      background: #edf3ff;
+      color: var(--text);
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: .7;
+    }
+
+    .status {
+      min-height: 28px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .meter {
+      height: 12px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e7eef5;
+      margin: 8px auto 0;
+      max-width: 420px;
+    }
+
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--success);
+      transition: width .12s linear;
+    }
+
+    .tiny {
+      color: var(--muted);
+      font-size: .82rem;
+      margin: 10px 0 0;
+      line-height: 1.35;
+    }
+
+    .celebrate {
+      animation: pop .45s ease;
+    }
+
+    @keyframes pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+
+    @media (max-width: 620px) {
+      body { padding: 8px; }
+      .app { padding: 12px; border-radius: 20px; }
+      .practice-grid { gap: 8px; }
+      .emotion-card, .camera-wrap { min-height: 220px; border-radius: 18px; }
+      video { min-height: 220px; max-height: 260px; }
+      .emoji { font-size: clamp(4.2rem, 22vw, 6.5rem); }
+      .emotion-word { font-size: clamp(1.3rem, 7vw, 2rem); }
+      .subtitle, .tiny { display: none; }
+      .controls { margin-top: 8px; }
+      button { padding: 11px 8px; font-size: .94rem; min-height: 46px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Emotion Match</h1>
+    <p class="subtitle">Copy the face. Hold the matching pose until the bar fills.</p>
+
+    <div class="practice-grid">
+      <section id="emotionCard" class="emotion-card">
+        <div id="emoji" class="emoji" aria-hidden="true">😊</div>
+        <div id="emotionWord" class="emotion-word">Happy</div>
+      </section>
+
+      <section class="camera-wrap">
+        <div id="cameraPlaceholder" class="camera-placeholder">
+          Enable the camera to begin.
+        </div>
+        <video id="video" autoplay playsinline muted></video>
+      </section>
+    </div>
+
+    <p id="prompt" class="prompt">Pretend to be happy.</p>
+
+    <div class="controls">
+      <button id="cameraBtn" class="primary">Enable Camera</button>
+      <button id="newEmotionBtn" class="secondary">New Emotion</button>
+    </div>
+
+    <div id="status" class="status" aria-live="polite">Camera is off.</div>
+    <div class="meter" aria-hidden="true"><div id="meterFill" class="meter-fill"></div></div>
+
+    <p class="tiny">
+      Matching uses facial landmarks in this browser to compare visible face poses.
+      It does not determine what the student is actually feeling. Camera video is not saved anywhere online. The Google API: Face Landmark Detection Guide is being used to analyze the camera video: https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker
+    </p>
+  </main>
+
+  <script type="module">
+    const emotions = [
+      { word: "happy", emoji: "😊" },
+      { word: "surprised", emoji: "😮" },
+      { word: "sad", emoji: "😢" },
+      { word: "angry", emoji: "😠" },
+      { word: "silly", emoji: "🤪" }
+    ];
+
+    const emojiEl = document.getElementById("emoji");
+    const wordEl = document.getElementById("emotionWord");
+    const promptEl = document.getElementById("prompt");
+    const emotionCard = document.getElementById("emotionCard");
+    const cameraBtn = document.getElementById("cameraBtn");
+    const cameraPlaceholder = document.getElementById("cameraPlaceholder");
+    const video = document.getElementById("video");
+    const newEmotionBtn = document.getElementById("newEmotionBtn");
+    const statusEl = document.getElementById("status");
+    const meterFill = document.getElementById("meterFill");
+
+    let currentEmotion = null;
+    let lastIndex = -1;
+    let stream = null;
+    let faceLandmarker = null;
+    let running = false;
+    let lastVideoTime = -1;
+    let matchStartedAt = 0;
+    let cooldownUntil = 0;
+    let smoothed = {};
+    const HOLD_MS = 1200;
+
+    function pickEmotion() {
+      let index;
+      do {
+        index = Math.floor(Math.random() * emotions.length);
+      } while (emotions.length > 1 && index === lastIndex);
+
+      lastIndex = index;
+      currentEmotion = emotions[index];
+      emojiEl.textContent = currentEmotion.emoji;
+      wordEl.textContent = currentEmotion.word;
+      promptEl.textContent = `Pretend to be ${currentEmotion.word}.`;
+      meterFill.style.width = "0%";
+      matchStartedAt = 0;
+      if (stream) statusEl.textContent = `Make a ${currentEmotion.word} face.`;
+    }
+
+    function playHappySound() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioContext();
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t = ctx.currentTime + i * 0.11;
+        osc.type = "sine";
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.10);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      });
+      setTimeout(() => ctx.close(), 800);
+    }
+
+    function blend(name, value, alpha = 0.35) {
+      if (!Number.isFinite(value)) value = 0;
+      smoothed[name] = smoothed[name] == null ? value : smoothed[name] * (1 - alpha) + value * alpha;
+      return smoothed[name];
+    }
+
+    function categoryScore(categories, name) {
+      const found = categories?.find(c => c.categoryName === name);
+      return found ? found.score : 0;
+    }
+
+    function getScores(blendshapes) {
+      const cats = blendshapes?.categories || [];
+      const smile = blend("smile",
+        (categoryScore(cats, "mouthSmileLeft") + categoryScore(cats, "mouthSmileRight")) / 2
+      );
+      const frown = blend("frown",
+        (categoryScore(cats, "mouthFrownLeft") + categoryScore(cats, "mouthFrownRight")) / 2
+      );
+      const jawOpen = blend("jawOpen", categoryScore(cats, "jawOpen"));
+      const mouthPucker = blend("pucker", categoryScore(cats, "mouthPucker"));
+      const eyeWide = blend("eyeWide",
+        (categoryScore(cats, "eyeWideLeft") + categoryScore(cats, "eyeWideRight")) / 2
+      );
+      const browDown = blend("browDown",
+        (categoryScore(cats, "browDownLeft") + categoryScore(cats, "browDownRight")) / 2
+      );
+      const browInnerUp = blend("browInnerUp", categoryScore(cats, "browInnerUp"));
+      const cheekSquint = blend("cheekSquint",
+        (categoryScore(cats, "cheekSquintLeft") + categoryScore(cats, "cheekSquintRight")) / 2
+      );
+      const mouthLeft = blend("mouthLeft", categoryScore(cats, "mouthLeft"));
+      const mouthRight = blend("mouthRight", categoryScore(cats, "mouthRight"));
+      const asym = Math.abs(mouthLeft - mouthRight);
+
+      return { smile, frown, jawOpen, mouthPucker, eyeWide, browDown, browInnerUp, cheekSquint, asym };
+    }
+
+    function matchesTarget(s) {
+      switch (currentEmotion.word) {
+        case "happy":
+          return s.smile > 0.45 && s.jawOpen < 0.55;
+        case "surprised":
+          return s.jawOpen > 0.45 && (s.eyeWide > 0.18 || s.browInnerUp > 0.18) && s.smile < 0.55;
+        case "sad":
+          return (s.frown > 0.30 || s.browInnerUp > 0.35) && s.smile < 0.25;
+        case "angry":
+          return s.browDown > 0.35 && s.smile < 0.25;
+        case "silly":
+          return (s.asym > 0.18 && s.jawOpen > 0.18) || (s.jawOpen > 0.58 && s.smile > 0.32);
+        default:
+          return false;
+      }
+    }
+
+    async function setupModel() {
+      statusEl.textContent = "Loading face matching…";
+      const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/+esm");
+      const filesetResolver = await vision.FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22-rc.20250304/wasm"
+      );
+
+      faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU"
+        },
+        outputFaceBlendshapes: true,
+        runningMode: "VIDEO",
+        numFaces: 1
+      });
+    }
+
+    async function enableCamera() {
+      cameraBtn.disabled = true;
+      try {
+        if (!faceLandmarker) await setupModel();
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        await video.play();
+        video.classList.add("visible");
+        cameraPlaceholder.style.display = "none";
+        cameraBtn.textContent = "Camera On";
+        statusEl.textContent = `Make a ${currentEmotion.word} face.`;
+        running = true;
+        requestAnimationFrame(analyzeFrame);
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "Camera or face matching could not start. Check camera permission and internet access.";
+        cameraBtn.disabled = false;
+        cameraBtn.textContent = "Try Camera Again";
+      }
+    }
+
+    function celebrate() {
+      playHappySound();
+      statusEl.textContent = "You matched the face! 🎉";
+      meterFill.style.width = "100%";
+      emotionCard.classList.remove("celebrate");
+      void emotionCard.offsetWidth;
+      emotionCard.classList.add("celebrate");
+      cooldownUntil = performance.now() + 1800;
+      matchStartedAt = 0;
+
+      setTimeout(() => {
+        pickEmotion();
+      }, 1400);
+    }
+
+    function analyzeFrame(now) {
+      if (!running) return;
+
+      if (video.readyState >= 2 && video.currentTime !== lastVideoTime && faceLandmarker) {
+        lastVideoTime = video.currentTime;
+
+        try {
+          const result = faceLandmarker.detectForVideo(video, now);
+          const blendshapes = result.faceBlendshapes?.[0];
+
+          if (!blendshapes) {
+            statusEl.textContent = "Move your face into the camera.";
+            matchStartedAt = 0;
+            meterFill.style.width = "0%";
+          } else if (now >= cooldownUntil) {
+            const scores = getScores(blendshapes);
+            const matched = matchesTarget(scores);
+
+            if (matched) {
+              if (!matchStartedAt) matchStartedAt = now;
+              const elapsed = now - matchStartedAt;
+              const pct = Math.min(100, (elapsed / HOLD_MS) * 100);
+              meterFill.style.width = `${pct}%`;
+              statusEl.textContent = "Keep holding that face…";
+
+              if (elapsed >= HOLD_MS) celebrate();
+            } else {
+              matchStartedAt = 0;
+              meterFill.style.width = "0%";
+              statusEl.textContent = `Keep trying the ${currentEmotion.word} face.`;
+            }
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      requestAnimationFrame(analyzeFrame);
+    }
+
+    cameraBtn.addEventListener("click", enableCamera);
+    newEmotionBtn.addEventListener("click", () => {
+      cooldownUntil = performance.now() + 400;
+      pickEmotion();
+    });
+
+    pickEmotion();
+  </script>
+</body>
+</html>
