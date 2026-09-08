@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Water Cycle Simulation</title>
+  <style>
+    :root {
+      --bg-top: #87CEEB;
+      --bg-bottom: #E0F6FF;
+      --text-color: #2D3748;
+      --panel-bg: rgba(255, 255, 255, 0.9);
+      --accent-color: #3182CE;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: #1A202C;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 480px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Controls Panel */
+    .controls {
+      background: #F7FAFC;
+      padding: 16px 20px;
+      border-top: 1px solid #E2E8F0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #4A5568;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-color);
+    }
+
+    /* Info Banner */
+    .stage-info {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      background: var(--panel-bg);
+      backdrop-filter: blur(8px);
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      pointer-events: none;
+    }
+
+    .stage-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2B6CB0;
+      margin-bottom: 4px;
+    }
+
+    .stage-desc {
+      font-size: 13px;
+      color: #4A5568;
+      line-height: 1.4;
+    }
+
+    /* Navigation Buttons */
+    .stage-buttons {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      background: var(--panel-bg);
+      padding: 6px;
+      border-radius: 30px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn {
+      border: none;
+      background: transparent;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4A5568;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn.active {
+      background: var(--accent-color);
+      color: white;
+    }
+
+    .btn:hover:not(.active) {
+      background: rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="canvas-container">
+    <canvas id="cycleCanvas"></canvas>
+    
+    <div class="stage-info">
+      <div class="stage-title" id="infoTitle">Water Cycle Overview</div>
+      <div class="stage-desc" id="infoDesc">Adjust environment variables below or click any phase to inspect the continuous flow of water through Earth's systems.</div>
+    </div>
+
+    <div class="stage-buttons">
+      <button class="btn active" onclick="setStage('all')">All Stages</button>
+      <button class="btn" onclick="setStage('evap')">1. Evaporation</button>
+      <button class="btn" onclick="setStage('cond')">2. Condensation</button>
+      <button class="btn" onclick="setStage('prec')">3. Precipitation</button>
+      <button class="btn" onclick="setStage('coll')">4. Collection</button>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Sun Intensity <span id="sunVal">75%</span></label>
+      <input type="range" id="sunSlider" min="10" max="100" value="75">
+    </div>
+    <div class="control-group">
+      <label>Temperature <span id="tempVal">20°C</span></label>
+      <input type="range" id="tempSlider" min="-10" max="40" value="20">
+    </div>
+    <div class="control-group">
+      <label>Wind Speed <span id="windVal">15 km/h</span></label>
+      <input type="range" id="windSlider" min="0" max="40" value="15">
+    </div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('cycleCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Interactive Controls
+  const sunSlider = document.getElementById('sunSlider');
+  const tempSlider = document.getElementById('tempSlider');
+  const windSlider = document.getElementById('windSlider');
+
+  const sunVal = document.getElementById('sunVal');
+  const tempVal = document.getElementById('tempVal');
+  const windVal = document.getElementById('windVal');
+
+  const infoTitle = document.getElementById('infoTitle');
+  const infoDesc = document.getElementById('infoDesc');
+
+  let currentStage = 'all';
+
+  const stageDescriptions = {
+    all: {
+      title: "The Water Cycle (Hydrologic Cycle)",
+      desc: "Water continuously circulates through Earth's atmosphere, land, and oceans driven by solar heat and gravity."
+    },
+    evap: {
+      title: "1. Evaporation & Transpiration",
+      desc: "Solar radiation heats surface liquid in oceans and lakes, transforming water into airborne water vapor that rises into the atmosphere."
+    },
+    cond: {
+      title: "2. Condensation",
+      desc: "As warm vapor ascends into cooler upper atmospheric air, it cools and coalesces around microscopic dust particles to form clouds."
+    },
+    prec: {
+      title: "3. Precipitation",
+      desc: "When condensed droplets within clouds grow too heavy for atmospheric updrafts to hold, gravity pulls them down as rain or snow."
+    },
+    coll: {
+      title: "4. Collection & Runoff",
+      desc: "Precipitation returns to land and oceans via mountain streams, surface runoff, and subterranean groundwater infiltration."
+    }
+  };
+
+  function setStage(stage) {
+    currentStage = stage;
+    document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    infoTitle.innerText = stageDescriptions[stage].title;
+    infoDesc.innerText = stageDescriptions[stage].desc;
+  }
+
+  // Adjust canvas size for sharp rendering
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // Particle Generators
+  const vaporParticles = Array.from({ length: 40 }, () => ({
+    x: 0, y: 0, speed: 0, opacity: 0, radius: 0
+  }));
+
+  const rainParticles = Array.from({ length: 80 }, () => ({
+    x: 0, y: 0, speed: 0, length: 0
+  }));
+
+  function resetVapor(p) {
+    p.x = canvas.width * 0.55 + Math.random() * (canvas.width * 0.4);
+    p.y = canvas.height * 0.72 + Math.random() * 40;
+    p.speed = 0.5 + Math.random() * 1.2;
+    p.opacity = 0.2 + Math.random() * 0.5;
+    p.radius = 2 + Math.random() * 3;
+  }
+
+  function resetRain(p) {
+    p.x = canvas.width * 0.15 + Math.random() * (canvas.width * 0.45);
+    p.y = canvas.height * 0.25 + Math.random() * 30;
+    p.speed = 4 + Math.random() * 4;
+    p.length = 8 + Math.random() * 8;
+  }
+
+  vaporParticles.forEach(resetVapor);
+  rainParticles.forEach(resetRain);
+
+  let angle = 0;
+
+  // Main Render Loop
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const sunIntensity = parseInt(sunSlider.value);
+    const temperature = parseInt(tempSlider.value);
+    const windSpeed = parseInt(windSlider.value);
+
+    sunVal.innerText = sunIntensity + "%";
+    tempVal.innerText = temperature + "°C";
+    windVal.innerText = windSpeed + " km/h";
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // 1. Sky Background
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+    if (temperature < 0) {
+      skyGrad.addColorStop(0, "#A0C4FF");
+      skyGrad.addColorStop(1, "#E0E1DD");
+    } else {
+      skyGrad.addColorStop(0, "#72EFDD");
+      skyGrad.addColorStop(1, "#5390D9");
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Sun
+    if (currentStage === 'all' || currentStage === 'evap') {
+      const sunX = w * 0.85;
+      const sunY = h * 0.18;
+      const sunRadius = 30 + (sunIntensity / 100) * 15;
+
+      // Rays
+      angle += 0.01;
+      ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 + (sunIntensity / 100) * 0.5})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 12; i++) {
+        const a = angle + (i * Math.PI / 6);
+        ctx.beginPath();
+        ctx.moveTo(sunX + Math.cos(a) * (sunRadius + 5), sunY + Math.sin(a) * (sunRadius + 5));
+        ctx.lineTo(sunX + Math.cos(a) * (sunRadius + 20), sunY + Math.sin(a) * (sunRadius + 20));
+        ctx.stroke();
+      }
+
+      // Core Sun
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
+      ctx.fillStyle = "#FFD166";
+      ctx.shadowColor = "#FFD166";
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // 3. Mountains (Collection Base)
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.75);
+    ctx.lineTo(w * 0.25, h * 0.35);
+    ctx.lineTo(w * 0.5, h * 0.75);
+    ctx.fillStyle = "#4A5568";
+    ctx.fill();
+
+    // Mountain Snowcaps
+    if (temperature < 15) {
+      ctx.beginPath();
+      ctx.moveTo(w * 0.20, h * 0.43);
+      ctx.lineTo(w * 0.25, h * 0.35);
+      ctx.lineTo(w * 0.30, h * 0.43);
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fill();
+    }
+
+    // Secondary Hill
+    ctx.beginPath();
+    ctx.moveTo(w * 0.2, h * 0.75);
+    ctx.lineTo(w * 0.45, h * 0.52);
+    ctx.lineTo(w * 0.65, h * 0.75);
+    ctx.fillStyle = "#2D3748";
+    ctx.fill();
+
+    // Terrain Shoreline
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.72);
+    ctx.bezierCurveTo(w * 0.2, h * 0.68, w * 0.4, h * 0.75, w * 0.55, h * 0.72);
+    ctx.lineTo(w * 0.55, h);
+    ctx.lineTo(0, h);
+    ctx.fillStyle = "#38A169";
+    ctx.fill();
+
+    // 4. Ocean / Body of Water
+    ctx.beginPath();
+    ctx.moveTo(w * 0.55, h * 0.72);
+    ctx.lineTo(w, h * 0.72);
+    ctx.lineTo(w, h);
+    ctx.lineTo(w * 0.55, h);
+    ctx.fillStyle = "#3182CE";
+    ctx.fill();
+
+    // River / Runoff
+    if (currentStage === 'all' || currentStage === 'coll') {
+      ctx.beginPath();
+      ctx.moveTo(w * 0.25, h * 0.35);
+      ctx.quadraticCurveTo(w * 0.3, h * 0.6, w * 0.57, h * 0.72);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "#63B3ED";
+      ctx.stroke();
+    }
+
+    // 5. Evaporation Particles
+    if (currentStage === 'all' || currentStage === 'evap') {
+      const activeVaporCount = Math.floor((sunIntensity / 100) * vaporParticles.length);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+
+      for (let i = 0; i < activeVaporCount; i++) {
+        const p = vaporParticles[i];
+        p.y -= p.speed * (sunIntensity / 50);
+        p.x += (windSpeed / 10) + Math.sin(p.y * 0.05);
+
+        if (p.y < h * 0.28) resetVapor(p);
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 6. Clouds (Condensation)
+    if (currentStage === 'all' || currentStage === 'cond' || currentStage === 'prec') {
+      const cloudX = w * 0.3 + (windSpeed * 0.8);
+      const cloudY = h * 0.22;
+
+      ctx.fillStyle = temperature < 0 ? "rgba(220, 225, 230, 0.95)" : "rgba(255, 255, 255, 0.9)";
+      ctx.beginPath();
+      ctx.arc(cloudX, cloudY, 35, Math.PI * 0.5, Math.PI * 1.5);
+      ctx.arc(cloudX + 35, cloudY - 25, 40, Math.PI * 1, Math.PI * 1.85);
+      ctx.arc(cloudX + 85, cloudY - 15, 30, Math.PI * 1.37, Math.PI * 1.91);
+      ctx.arc(cloudX + 115, cloudY, 30, Math.PI * 1.5, Math.PI * 0.5);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 7. Precipitation Particles (Rain / Snow)
+    if (currentStage === 'all' || currentStage === 'prec') {
+      const isSnow = temperature <= 0;
+
+      rainParticles.forEach(p => {
+        p.y += p.speed;
+        p.x += (windSpeed / 8);
+
+        if (p.y > h * 0.72) resetRain(p);
+
+        ctx.beginPath();
+        if (isSnow) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = "rgba(225, 245, 254, 0.8)";
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + (windSpeed / 10), p.y + p.length);
+          ctx.stroke();
+        }
+      });
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+</script>
+
+</body>
+</html>
