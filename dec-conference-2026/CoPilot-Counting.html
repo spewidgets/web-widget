@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>1:1 Correspondence Widget</title>
+<style>
+  :root{
+    --bg:#f7fbff; --card:#ffffff; --accent:#2b8cff; --ok:#28a745; --err:#e55353;
+    --shadow: 0 6px 18px rgba(20,30,60,0.08);
+  }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+       margin:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
+       min-height:100vh;padding:24px;}
+  .widget{width:100%;max-width:760px;background:var(--card);border-radius:14px;
+          box-shadow:var(--shadow);padding:18px;box-sizing:border-box;}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .title{font-size:1.15rem;font-weight:700;color:#0b2540;}
+  .controls{display:flex;gap:8px;align-items:center;}
+  .btn{background:var(--accent);color:#fff;border:none;padding:8px 12px;border-radius:10px;
+       font-weight:600;cursor:pointer;box-shadow:0 4px 8px rgba(43,140,255,0.18);}
+  .btn.secondary{background:#eef6ff;color:var(--accent);box-shadow:none;border:1px solid #d7eaff;}
+  .settings{display:flex;gap:8px;align-items:center;}
+  label{font-size:0.9rem;color:#234;}
+  input[type=range]{width:140px;}
+  .stage{display:grid;grid-template-columns:1fr 220px;gap:12px;align-items:start;}
+  .play-area{background:linear-gradient(180deg,#fff,#f6fbff);border-radius:12px;padding:14px;
+             min-height:260px;display:flex;flex-wrap:wrap;gap:12px;align-content:flex-start;
+             justify-content:center;align-items:flex-start;border:1px dashed #e6f0ff;}
+  .item{width:72px;height:72px;border-radius:12px;background:#fff;display:flex;
+        flex-direction:column;align-items:center;justify-content:center;font-size:1.6rem;color:#0b2540;
+        box-shadow:0 6px 12px rgba(10,20,40,0.06);touch-action:manipulation;user-select:none;
+        border:3px solid transparent;cursor:pointer;padding:6px;box-sizing:border-box;}
+  .item .fruit{line-height:1;}
+  .item .num{font-size:1rem;margin-top:6px;color:var(--accent);font-weight:800;height:1em;display:block;}
+  .item.tapped{opacity:0.85;transform:translateY(4px);border-color:var(--accent);}
+  .sidebar{padding:12px;border-radius:10px;background:#fbfdff;border:1px solid #eef7ff;}
+  .counter{font-size:2.4rem;font-weight:800;color:var(--accent);text-align:center;margin-bottom:8px;}
+  .feedback{height:48px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .feedback.ok{color:var(--ok);}
+  .feedback.err{color:var(--err);}
+  .celebrate{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:8px;flex-wrap:wrap;}
+  .star{width:28px;height:28px;border-radius:50%;background:gold;display:inline-block;}
+  .sr-only{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;}
+  @media (max-width:720px){ .stage{grid-template-columns:1fr; } .sidebar{order:2;} }
+</style>
+</head>
+<body>
+<div class="widget" role="application" aria-label="One to one correspondence activity">
+  <div class="header">
+    <div class="title">Count with Me — One to One Correspondence</div>
+    <div class="controls" aria-hidden="false">
+      <button id="resetBtn" class="btn secondary">Reset</button>
+      <button id="celebrateBtn" class="btn">Celebrate</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <label for="numItems">Items</label>
+        <input id="numItems" type="range" min="1" max="10" value="5" aria-label="Number of items"/>
+        <span id="numLabel" style="font-weight:700;color:#234;">5</span>
+        <div style="flex:1"></div>
+        <label style="font-size:0.9rem;color:#234;">
+          <input id="audioToggle" type="checkbox" checked /> Audio
+        </label>
+      </div>
+
+      <div id="playArea" class="play-area" aria-live="polite" aria-atomic="true">
+        <!-- items injected here -->
+      </div>
+    </div>
+
+    <aside class="sidebar" aria-label="Activity controls and feedback">
+      <div style="text-align:center;margin-bottom:8px;">
+        <div style="font-size:0.95rem;color:#234;">Number counted</div>
+        <div id="countDisplay" class="counter" aria-live="polite">0</div>
+      </div>
+      <div id="feedback" class="feedback" aria-live="assertive"></div>
+      <div class="celebrate" id="celebrateArea" aria-hidden="true"></div>
+      <div style="margin-top:12px;font-size:0.9rem;color:#234;">
+        <strong>Teacher tips</strong>
+        <ul style="padding-left:18px;margin:6px 0 0 0;">
+          <li>Ask the child to touch each item and say the number aloud.</li>
+          <li>Model one touch = one number; pause between touches.</li>
+          <li>Use small sets (1–5) until consistent, then increase.</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+  <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+</div>
+
+<script>
+  // Simple widget logic with numbered labels under touched apples
+  const playArea = document.getElementById('playArea');
+  const numItems = document.getElementById('numItems');
+  const numLabel = document.getElementById('numLabel');
+  const countDisplay = document.getElementById('countDisplay');
+  const feedback = document.getElementById('feedback');
+  const resetBtn = document.getElementById('resetBtn');
+  const celebrateBtn = document.getElementById('celebrateBtn');
+  const audioToggle = document.getElementById('audioToggle');
+  const celebrateArea = document.getElementById('celebrateArea');
+  const liveRegion = document.getElementById('liveRegion');
+
+  let items = [];
+  let tappedSet = new Set();
+  let currentCount = 0;
+
+  function speak(text){
+    if(!audioToggle.checked) return;
+    if('speechSynthesis' in window){
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 0.9;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+    }
+  }
+
+  function makeItem(i){
+    const el = document.createElement('button');
+    el.className = 'item';
+    el.type = 'button';
+    el.setAttribute('data-index', i);
+    el.setAttribute('aria-pressed','false');
+    el.setAttribute('aria-label','item ' + (i+1));
+    // structure: fruit emoji + number placeholder under it
+    const fruit = document.createElement('div');
+    fruit.className = 'fruit';
+    fruit.textContent = '🍎';
+    const num = document.createElement('div');
+    num.className = 'num';
+    num.setAttribute('aria-hidden','true');
+    num.textContent = ''; // will be filled when touched
+    el.appendChild(fruit);
+    el.appendChild(num);
+
+    // store reference to number element for quick access
+    el._numLabel = num;
+
+    el.addEventListener('click', onTap);
+    el.addEventListener('touchstart', onTap, {passive:true});
+    return el;
+  }
+
+  function render(n){
+    playArea.innerHTML = '';
+    items = [];
+    tappedSet.clear();
+    currentCount = 0;
+    updateCountDisplay();
+    feedback.textContent = '';
+    celebrateArea.innerHTML = '';
+    celebrateArea.setAttribute('aria-hidden','true');
+
+    for(let i=0;i<n;i++){
+      const it = makeItem(i);
+      items.push(it);
+      playArea.appendChild(it);
+    }
+  }
+
+  function updateCountDisplay(){
+    countDisplay.textContent = currentCount;
+    liveRegion.textContent = 'Count is ' + currentCount;
+  }
+
+  function onTap(e){
+    // prevent focus outline from causing double events on touch devices
+    e.preventDefault && e.preventDefault();
+    const btn = e.currentTarget;
+    const idx = btn.getAttribute('data-index');
+    if(tappedSet.has(idx)){
+      // already tapped: give gentle correction
+      feedback.textContent = 'You already counted that one. Try another.';
+      feedback.className = 'feedback err';
+      speak('Already counted. Try another.');
+      return;
+    }
+    // mark tapped
+    tappedSet.add(idx);
+    btn.classList.add('tapped');
+    btn.setAttribute('aria-pressed','true');
+    currentCount = tappedSet.size;
+    // put the ordinal number under this apple
+    if(btn._numLabel){
+      btn._numLabel.textContent = String(currentCount);
+      btn._numLabel.setAttribute('aria-hidden','false');
+    }
+    updateCountDisplay();
+    feedback.textContent = '';
+    feedback.className = 'feedback';
+    // speak the number
+    speak(String(currentCount));
+    // small success when all counted
+    const total = parseInt(numItems.value,10);
+    if(currentCount === total){
+      celebrate(true);
+      feedback.textContent = 'Great job! You counted each one.';
+      feedback.className = 'feedback ok';
+      speak('Great job! You counted each one.');
+    }
+  }
+
+  // Celebrate creates exactly as many yellow circles as the number counted
+  function celebrate(show){
+    celebrateArea.innerHTML = '';
+    if(!show){
+      celebrateArea.setAttribute('aria-hidden','true');
+      return;
+    }
+
+    // number of circles should match the number counted
+    const n = currentCount;
+    if(n <= 0){
+      // nothing to show if nothing counted
+      celebrateArea.setAttribute('aria-hidden','true');
+      return;
+    }
+
+    celebrateArea.setAttribute('aria-hidden','false');
+    for(let i=0;i<n;i++){
+      const s = document.createElement('div');
+      s.className = 'star';
+      // add a little random offset/scale for a playful look
+      s.style.transform = 'translateY(' + (Math.random()*-18) + 'px) scale(' + (0.9+Math.random()*0.6) + ')';
+      celebrateArea.appendChild(s);
+    }
+
+    // short confetti-like sound using WebAudio
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = 880;
+      o.connect(g);
+      g.connect(ctx.destination);
+      g.gain.value = 0.0001;
+      g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+      o.start();
+      o.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.25);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      o.stop(ctx.currentTime + 0.55);
+    }catch(e){}
+  }
+
+  // Controls
+  numItems.addEventListener('input', ()=>{
+    numLabel.textContent = numItems.value;
+    render(parseInt(numItems.value,10));
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    render(parseInt(numItems.value,10));
+    speak('Reset. Count from one.');
+  });
+
+  celebrateBtn.addEventListener('click', ()=>{
+    // celebrate based on currentCount (if 0, nothing will appear)
+    celebrate(true);
+    if(currentCount > 0) speak('Yay! Great counting!');
+    else speak('Count some items first, then celebrate!');
+  });
+
+  // initialize
+  render(parseInt(numItems.value,10));
+</script>
+</body>
+</html>
