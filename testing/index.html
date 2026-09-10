@@ -1,1 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNES Emulator Widget</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .widget-container {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        #emulator-wrapper {
+            width: 640px;
+            height: 480px;
+            max-width: 100%;
+            background: #000;
+            margin-top: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none; /* Hidden until ROM is uploaded */
+        }
+        input[type="file"] {
+            margin-top: 10px;
+            padding: 10px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
 
+<div class="widget-container">
+    <h2>SNES Web Player</h2>
+    <p>Select a .smc, .sfc, or .zip ROM file from your device</p>
+    <input type="file" id="rom-upload" accept=".smc,.sfc,.zip" />
+    
+    <div id="emulator-wrapper">
+        <div id="game"></div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('rom-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // 1. Reveal the emulator container
+        document.getElementById('emulator-wrapper').style.display = 'block';
+
+        // 2. Create a local blob URL for the uploaded ROM file
+        const objectUrl = URL.createObjectURL(file);
+
+        // 3. Configure EmulatorJS parameters
+        window.EJS_player = '#game';
+        window.EJS_core = 'snes'; // Super Nintendo core
+        window.EJS_gameName = file.name.split('.')[0]; 
+        window.EJS_startOnLoaded = true;
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/'; // EmulatorJS CDN path
+        window.EJS_gameUrl = objectUrl; // Pass the local file URL to the emulator
+
+        // 4. Load the emulator engine dynamically
+        const script = document.createElement('script');
+        script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+        document.body.appendChild(script);
+
+        // 5. Hide the upload button to prevent double-loading issues
+        e.target.style.display = 'none';
+    });
+</script>
+
+</body>
+</html>
