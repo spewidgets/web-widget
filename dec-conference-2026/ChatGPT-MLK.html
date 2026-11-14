@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#172d32" />
+  <meta name="description" content="Explore an interactive illustrated 3D tour of the 1963 March on Washington and Martin Luther King Jr.'s I Have a Dream speech. For middle school students." />
+  <title>A Dream on the National Mall · 1963 Virtual Tour</title>
+  <style>
+    :root{--ink:#172d32;--muted:#65716d;--cream:#f7f4e9;--paper:#eee9dc;--teal:#174f53;--gold:#d9a35e;--line:#d9d8cb;--white:#fffdf7}
+    *{box-sizing:border-box}
+    html{height:100%}body{margin:0;min-height:100%;background:var(--cream);color:var(--ink);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,a{font:inherit}button{cursor:pointer}a{color:#135f66;text-underline-offset:3px}
+    button:focus-visible,a:focus-visible{outline:3px solid #cc7c2d;outline-offset:3px}
+    .site-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px clamp(20px,4vw,60px);background:#183438;color:#fffdf3}
+    .brand{display:flex;align-items:center;gap:14px}.brandmark{display:grid;place-items:center;width:38px;height:38px;border:1.5px solid #d9b67e;border-radius:50%;color:#e8c68e;font-family:Georgia,serif;font-size:25px;flex-shrink:0}
+    .brand-title{font-family:Georgia,"Times New Roman",serif;font-size:clamp(18px,1.7vw,23px);letter-spacing:-.5px}.brand-kicker{color:#c7d5cd;font-size:10px;letter-spacing:2.25px;font-weight:750;text-transform:uppercase;margin-bottom:4px}
+    .header-right{display:flex;align-items:center;gap:20px;color:#d5e3dd;font-size:12px}.era-pill{border:1px solid #59756f;border-radius:99px;padding:8px 13px;white-space:nowrap;letter-spacing:.5px}.help-btn{border:0;background:transparent;color:#fff;display:flex;gap:8px;align-items:center;padding:8px 0;font-size:13px}
+    .intro{padding:30px clamp(20px,4vw,60px) 24px;display:flex;align-items:end;justify-content:space-between;gap:18px}
+    .eyebrow{color:#9b6b32;font-size:11px;letter-spacing:2.2px;font-weight:850;text-transform:uppercase;display:block;margin-bottom:10px}
+    h1{font-family:Georgia,"Times New Roman",serif;font-weight:500;font-size:clamp(34px,4vw,58px);line-height:1.04;letter-spacing:-2px;margin:0}
+    .intro p{color:#65736c;font-size:14px;line-height:1.7;max-width:365px;margin:0 0 3px}
+    .tour{margin:0 clamp(12px,3vw,44px);display:grid;grid-template-columns:minmax(0,1.72fr) minmax(305px,.86fr);min-height:540px;height:min(69vh,680px);border:1px solid #d9d9cd;border-radius:17px;overflow:hidden;box-shadow:0 20px 48px rgba(28,44,38,.085);background:var(--white)}
+    .viewport{position:relative;overflow:hidden;background:#9abfbe;isolation:isolate;touch-action:pan-y;min-width:0}
+    #world{width:100%;height:100%;display:block;cursor:grab;touch-action:none;outline-offset:-4px}#world:active{cursor:grabbing}
+    .vignette{pointer-events:none;position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,24,31,.04),transparent 23%,transparent 78%,rgba(8,37,42,.17));z-index:1}
+    .viewport-top{position:absolute;left:20px;right:20px;top:19px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;z-index:5;pointer-events:none}
+    .location-tag{background:rgba(250,250,239,.93);border:1px solid rgba(255,255,255,.7);box-shadow:0 3px 16px #183e4233;color:#315252;font-size:10px;font-weight:850;letter-spacing:1.35px;text-transform:uppercase;padding:10px 13px;border-radius:7px;backdrop-filter:blur(8px)}
+    .reconstruction{color:#fffdf7;text-align:right;text-shadow:0 1px 6px #173a4fbd;font-size:10px;font-weight:750;letter-spacing:1.1px;text-transform:uppercase;line-height:1.5}
+    .hotspot{position:absolute;z-index:4;transform:translate(-50%,-100%);border:1px solid rgba(255,255,255,.8);border-radius:30px;background:rgba(246,248,236,.94);color:#244e52;box-shadow:0 3px 18px #1a515354;padding:8px 11px;font-size:11px;font-weight:800;display:none;white-space:nowrap;pointer-events:auto;transition:background .2s}
+    .hotspot:hover{background:#fff5d7}.hotspot::after{content:"";position:absolute;left:50%;top:100%;height:17px;width:1px;background:rgba(250,248,237,.9)}
+    .viewport-bottom{position:absolute;bottom:20px;left:20px;right:20px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;z-index:5;pointer-events:none}
+    .hint{background:#143a3ec7;color:#ecf4ef;font-size:11px;line-height:1.6;border:1px solid #ffffff39;padding:11px 13px;border-radius:9px;backdrop-filter:blur(7px)}
+    .view-actions{display:flex;gap:8px;pointer-events:auto}.icon-btn{border:1px solid #ffffff88;background:#173b43bd;color:white;border-radius:9px;height:37px;padding:0 12px;font-size:12px;font-weight:700;backdrop-filter:blur(5px)}.icon-btn:hover{background:#0d5357}
+    .story{padding:29px clamp(22px,3vw,39px) 24px;display:flex;flex-direction:column;min-width:0;background:#fffdf6;border-left:1px solid #e0e0d3;overflow-y:auto}
+    .story-topline{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#9b6c37;font-size:11px;font-weight:850;letter-spacing:1.75px;text-transform:uppercase}
+    .story-topline span:last-child{color:#7d8680;font-size:11px;letter-spacing:1px}
+    .progress-track{height:4px;background:#eee9d9;border-radius:5px;display:flex;gap:4px;margin:16px 0 25px}
+    .progress-bar{height:100%;flex:1;background:#dfdfd3;border-radius:5px;transition:background .25s}.progress-bar.done{background:#285d5c}.progress-bar.active{background:#d79e56}
+    .chapter-label{font-size:11px;color:#ac7a40;font-weight:850;letter-spacing:1.65px;text-transform:uppercase;margin-bottom:11px}
+    h2{font-family:Georgia,"Times New Roman",serif;font-size:clamp(29px,2.7vw,42px);line-height:1.12;letter-spacing:-1px;font-weight:500;margin:0 0 17px}
+    .story-copy{color:#45554e;font-size:14px;line-height:1.82;margin:0 0 21px}
+    .fact{background:#f4f0e4;border-left:3px solid #cf9a57;padding:15px 15px 14px;margin-bottom:20px;border-radius:0 6px 6px 0}
+    .fact-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#9b6b32;font-weight:850;margin-bottom:6px}
+    .fact p{font-size:12.5px;line-height:1.7;color:#354b47;margin:0}
+    .think{border-top:1px solid var(--line);padding-top:18px;margin-top:auto}
+    .think-kicker{display:flex;align-items:center;gap:8px;color:#1f6563;font-size:10px;letter-spacing:1.35px;text-transform:uppercase;font-weight:850;margin-bottom:7px}
+    .think p{font-family:Georgia,serif;font-size:17px;line-height:1.5;margin:0 0 9px;color:#273d3a}
+    .reflect-btn{background:transparent;color:#176164;padding:3px 0;border:0;font-size:12px;font-weight:800;text-decoration:underline;text-underline-offset:4px}
+    .reflect-answer{display:none;color:#55665d;font-size:12px;line-height:1.6;padding:9px 0}.reflect-answer.open{display:block}
+    .story-footer{margin-top:22px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .btn{border-radius:9px;border:1px solid #ced7cf;background:transparent;padding:12px 15px;font-size:12px;font-weight:850;letter-spacing:.1px;color:#264744;display:inline-flex;align-items:center;justify-content:center;gap:10px}
+    .btn:disabled{opacity:.4;cursor:default}.btn.primary{background:#205956;border-color:#205956;color:#fff}.btn.primary:hover{background:#164845}.btn:not(:disabled):hover{border-color:#39736f}
+    .stop-nav{display:flex;gap:7px;align-items:center;justify-content:center;margin:20px clamp(13px,3vw,44px) 0;flex-wrap:wrap}
+    .stop-tab{border:1px solid #dddcd0;border-radius:30px;background:#faf9f3;padding:10px 14px;font-size:12px;font-weight:750;color:#687971;display:flex;gap:8px;align-items:center;transition:background .15s}.stop-tab b{font-size:10px;border-radius:50%;background:#e9ebe1;width:21px;height:21px;display:inline-grid;place-items:center}.stop-tab.active{background:#214f50;color:#fff;border-color:#214f50}.stop-tab.active b{background:#37686a}.stop-tab:hover{border-color:#99b6a7}
+    .footer{max-width:1300px;margin:25px auto 0;padding:0 22px 38px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;color:#62726a;font-size:12px;line-height:1.7}
+    .footer p{margin:0;max-width:690px}.footer-links{display:flex;gap:16px;flex-wrap:wrap}
+    .modal-shade{position:fixed;inset:0;background:#0b252ec9;z-index:20;display:none;align-items:center;justify-content:center;padding:15px}.modal-shade.open{display:flex}
+    .modal{width:min(100%,570px);max-height:90vh;overflow:auto;background:#fcf9ee;border-radius:16px;padding:29px;box-shadow:0 30px 100px #0005;position:relative}.modal h2{font-size:32px}.modal .small{font-size:13px;line-height:1.7;color:#667369}.close{position:absolute;right:15px;top:13px;background:none;border:0;font-size:25px;color:#476364;padding:5px 9px}
+    .quiz-prompt{font-weight:750;font-size:15px;line-height:1.5;margin:20px 0 12px}.quiz-options{display:grid;gap:9px}.answer{width:100%;background:#fff;border:1px solid #d8dfd5;border-radius:9px;text-align:left;padding:12px 14px;color:#254d48;font-size:13px}.answer:hover:not(:disabled){background:#eff6ef}.answer.correct{background:#e1f2e7;border-color:#2e8e6b}.answer.wrong{background:#fcece4;border-color:#c47c64}.quiz-feedback{font-size:13px;line-height:1.6;min-height:45px;margin-top:14px;color:#3c544d}
+    @media(max-width:940px){.intro{align-items:start}.tour{grid-template-columns:minmax(0,1.35fr) minmax(275px,.9fr);height:auto;min-height:585px}.story{padding:23px}.footer{flex-direction:column}}
+    @media(max-width:690px){.site-header{padding:15px 20px}.era-pill,.header-right{display:none}.intro{display:block;padding:25px 21px 18px}.intro p{margin-top:12px}.tour{display:flex;flex-direction:column;height:auto;margin:0 11px}.viewport{height:clamp(325px,56vh,490px)}.story{border-left:0;border-top:1px solid #e0e0d3;padding:22px 23px;min-height:390px}.story-copy{font-size:13.5px}.think{margin-top:7px}.stop-nav{gap:6px;margin:17px 12px 0}.stop-tab{padding:7px 9px;font-size:11px;gap:5px}.stop-tab b{width:19px;height:19px}.reconstruction{font-size:9px}.hint{font-size:10px}.viewport-bottom{bottom:13px;left:13px;right:13px}.viewport-top{left:13px;right:13px}.location-tag{font-size:9px;padding:9px 10px}.footer{padding-bottom:23px}.hotspot{font-size:10px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand"><div class="brandmark" aria-hidden="true">✦</div><div><div class="brand-kicker">A virtual history experience</div><div class="brand-title">A Dream on the National Mall</div></div></div>
+    <div class="header-right"><span class="era-pill">WASHINGTON, D.C. · 1963</span><button class="help-btn" id="helpButton" type="button">ⓘ &nbsp; How to explore</button></div>
+  </header>
+  <section class="intro"><div><span class="eyebrow">Travel through a turning point in history</span><h1>Stand where history happened.</h1></div><p>Explore the historic setting of Dr. Martin Luther King Jr.’s “I Have a Dream” speech in five interactive stops.</p></section>
+  <main>
+    <section class="tour" aria-label="Interactive educational tour">
+      <div class="viewport" id="viewport">
+        <canvas id="world" tabindex="0" role="img" aria-label="Interactive, stylized 3D reconstruction of the Lincoln Memorial, the Reflecting Pool, the Washington Monument, and a peaceful crowd at the 1963 March on Washington. Drag to look around. Use stops to change your viewpoint.">Your browser does not support the interactive 3D canvas. The educational tour text and navigation are still available.</canvas>
+        <div class="vignette" aria-hidden="true"></div>
+        <div class="viewport-top"><div class="location-tag">✦ &nbsp; THE NATIONAL MALL · AUG 28, 1963</div><div class="reconstruction">ILLUSTRATED 3D RECONSTRUCTION<br>NOT A HISTORICAL PHOTOGRAPH</div></div>
+        <button class="hotspot" id="pin-memorial" data-go="2" aria-label="Go to Lincoln Memorial stop">⌖ &nbsp; Lincoln Memorial</button>
+        <button class="hotspot" id="pin-pool" data-go="0" aria-label="Go to Reflecting Pool stop">⌖ &nbsp; Reflecting Pool</button>
+        <button class="hotspot" id="pin-monument" data-go="4" aria-label="Go to Washington Monument and legacy stop">⌖ &nbsp; Washington Monument</button>
+        <div class="viewport-bottom"><div class="hint">↔ &nbsp; Drag to look around<br>Use the stops below to travel</div><div class="view-actions"><button class="icon-btn" id="resetView" aria-label="Reset camera view">↺ Reset view</button><button class="icon-btn" id="fullscreen" aria-label="Fullscreen 3D view">⛶</button></div></div>
+      </div>
+      <article class="story" aria-live="polite" aria-atomic="true">
+        <div class="story-topline"><span>THE STORY IN 5 STOPS</span><span id="stepCount">01 / 05</span></div><div class="progress-track" id="progress" aria-label="Tour progress"></div>
+        <div class="chapter-label" id="chapter">STOP 01 · THE GATHERING</div><h2 id="storyTitle">A crowd with a purpose</h2>
+        <p class="story-copy" id="storyCopy">On August 28, 1963, about 250,000 people came to Washington, D.C., for the March on Washington for Jobs and Freedom. They called for racial equality, fair employment, and civil rights.</p>
+        <div class="fact"><div class="fact-label">Did you know?</div><p id="factText">People traveled by bus, train, car, and plane from across the country to take part.</p></div>
+        <div class="think"><div class="think-kicker">✦ &nbsp; STOP &amp; THINK</div><p id="thinkText">Why might gathering peacefully in such a large group attract national attention?</p><button class="reflect-btn" id="reflectToggle" aria-expanded="false">Explore an idea +</button><div class="reflect-answer" id="reflectAnswer">A large, peaceful gathering can show leaders that many people want change—and help the public hear their message.</div></div>
+        <div class="story-footer"><button class="btn" id="prev" type="button" disabled>← Previous</button><button class="btn primary" id="next" type="button">Next stop <span aria-hidden="true">→</span></button></div>
+      </article>
+    </section>
+    <nav class="stop-nav" id="stopNav" aria-label="Choose a tour stop"></nav>
+  </main>
+  <footer class="footer"><p><strong>About this experience.</strong> This is an artist’s interactive reconstruction, not an exact model or historical photograph. Facts are drawn from the U.S. National Park Service, Smithsonian, and National Archives. The speech is summarized in age-appropriate language; no original speech recording or full transcript is reproduced.</p><div class="footer-links"><a target="_blank" rel="noopener noreferrer" href="https://www.nps.gov/articles/march-on-washington.htm">National Park Service ↗</a><a target="_blank" rel="noopener noreferrer" href="https://www.si.edu/spotlight/1963-march-on-washington">Smithsonian ↗</a><a target="_blank" rel="noopener noreferrer" href="https://www.archives.gov/milestone-documents/official-program-for-the-march-on-washington">National Archives ↗</a></div></footer>
+  <div class="modal-shade" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="modal"><button class="close" data-close="helpModal" aria-label="Close">×</button><span class="eyebrow">A guide to your experience</span><h2 id="helpTitle">How to explore</h2><p class="small">This interactive illustration is inspired by the National Mall in 1963. It helps you imagine the location and scale of the March on Washington; it does not replace historical photographs or primary sources.</p><p class="small"><strong>Navigate:</strong> Drag on the scene (or swipe on a touch screen) to look around. Use the <strong>five stops</strong>, <strong>Next</strong>, or <strong>Previous</strong> to move to a new viewpoint. You can also click landmark labels.</p><p class="small"><strong>Keyboard:</strong> Left/right arrows change stops; A/D look left or right; R resets the view; Escape exits a popup.</p><p class="small"><strong>Learn:</strong> Read each stop and try the reflection question. Finish all five stops to unlock a short knowledge check.</p><button class="btn primary" data-close="helpModal">Let's explore →</button></div></div>
+  <div class="modal-shade" id="quizModal" role="dialog" aria-modal="true" aria-labelledby="quizTitle"><div class="modal"><button class="close" data-close="quizModal" aria-label="Close">×</button><span class="eyebrow">Your historian challenge</span><h2 id="quizTitle">What do you remember?</h2><p class="small" id="quizProgress">Three questions · No grades, just learning.</p><div id="quizBody"></div><p class="quiz-feedback" id="quizFeedback" aria-live="polite"></p><button class="btn primary" id="quizNext" style="display:none">Continue →</button></div></div>
+  <script>
+  (()=>{'use strict';
+    const stops=[
+      {tab:'The March',chapter:'THE GATHERING',title:'A crowd with a purpose',copy:'On August 28, 1963, an estimated 250,000 people came to Washington, D.C., for the March on Washington for Jobs and Freedom. They called for racial equality, better jobs, and stronger civil rights protections.',fact:'People traveled by bus, train, car, and plane from communities across the United States to take part.',think:'Why might gathering peacefully in such a large group attract national attention?',idea:'A large, peaceful gathering can show leaders that many people want change—and help the public hear their message.',pos:[15,12,-34],target:[0,3,128]},
+      {tab:'The Organizers',chapter:'WORKING TOGETHER',title:'Many voices, one march',copy:'Dr. King was one of many people who made this day possible. Labor leader A. Philip Randolph proposed the march, and organizer Bayard Rustin helped plan the enormous event. Civil rights, labor, faith, and student groups worked together.',fact:'The march was officially called the “March on Washington for Jobs and Freedom.” The words jobs and freedom both mattered.',think:'Why did the organizers focus on both economic opportunity and civil rights?',idea:'Equal rights include having fair chances to learn, work, vote, and take part in society. The organizers knew these goals were connected.',pos:[31,14,61],target:[0,5,30]},
+      {tab:'Lincoln Steps',chapter:'THE HISTORIC SETTING',title:'The steps of the memorial',copy:'At the Lincoln Memorial, speakers and performers addressed the crowd. Dr. King spoke near the monument honoring President Abraham Lincoln, who had issued the Emancipation Proclamation 100 years earlier.',fact:'The gathering included many speakers and performers. Dr. King delivered the closing address of the program.',think:'Why do you think the Lincoln Memorial was a meaningful place to speak about equality?',idea:'The memorial connects the event to the history of slavery, emancipation, and the ongoing struggle to make the promise of equality real.',pos:[19,10,-25],target:[0,13,-69]},
+      {tab:'The Dream',chapter:'THE MESSAGE',title:'A dream of equality',copy:'In his “I Have a Dream” speech, Dr. King described a future in which people would be treated fairly instead of judged by race. He called for freedom, justice, and nonviolent action—and asked the nation to live up to its ideals.',fact:'King repeated “I have a dream” to build hope and make his message memorable. This speaking technique is called repetition.',think:'What can repetition do to make an important message stronger?',idea:'Repeating key words helps listeners remember an idea, feel its importance, and connect different examples to one central message.',pos:[0,9,-48],target:[0,5,122]},
+      {tab:'The Legacy',chapter:'WHAT CAME NEXT',title:'A dream that keeps inspiring',copy:'The march and speech became defining moments of the Civil Rights Movement. Years of organizing, protest, and public pressure helped bring about the Civil Rights Act of 1964 and the Voting Rights Act of 1965. The work for equal rights continued.',fact:'Those laws were important steps forward, but no single speech or law ended discrimination. Many people continued—and continue—to work for justice.',think:'What is one respectful action students can take to help make their community fairer?',idea:'Students can listen to others, speak up against unfair treatment, include classmates, learn history, and work together on community projects.',pos:[31,27,21],target:[0,3,83]}
+    ];
+    const $=(id)=>document.getElementById(id), canvas=$('world'), ctx=canvas.getContext('2d',{alpha:false}), view=$('viewport');
+    let current=0, sw=900,sh=570,dpr=1,drag=null, lastTime=0, reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const colors={sky:'#b4ced1',stone:'#eee1cb',green:'#59776b'};
+    const camera={x:15,y:12,z:-34,yaw:0,pitch:0,tx:15,ty:12,tz:-34,tyaw:0,tpitch:0};
+    const clamp=(a,b,c)=>Math.max(b,Math.min(c,a)),rad=Math.PI/180;
+    const lerp=(a,b,t)=>a+(b-a)*t;
+    function setCameraFromStop(index,instant=false){const s=stops[index];[camera.tx,camera.ty,camera.tz]=s.pos;const dx=s.target[0]-s.pos[0],dy=s.target[1]-s.pos[1],dz=s.target[2]-s.pos[2];camera.tyaw=Math.atan2(dx,dz);camera.tpitch=Math.atan2(dy,Math.hypot(dx,dz));if(instant||reduce){camera.x=camera.tx;camera.y=camera.ty;camera.z=camera.tz;camera.yaw=camera.tyaw;camera.pitch=camera.tpitch}}
+    setCameraFromStop(0,true);
+    // A deterministic miniature 3D world created entirely with shapes; it works without internet access.
+    let shapes=[],people=[],trees=[],randomSeed=1127;
+    function rnd(){randomSeed=(1664525*randomSeed+1013904223)>>>0;return randomSeed/4294967296}
+    function shape(pts,fill,opts={}){shapes.push({pts,fill,stroke:opts.stroke||null,kind:opts.kind||'face',alpha:opts.alpha??1})}
+    function box(x,y,z,w,h,d,c){let x0=x-w/2,x1=x+w/2,y0=y,y1=y+h,z0=z-d/2,z1=z+d/2;let p=(a,b,c)=>[a,b,c];shape([p(x0,y0,z0),p(x1,y0,z0),p(x1,y0,z1),p(x0,y0,z1)],c[0]||'#c4b8a3');shape([p(x0,y1,z0),p(x1,y1,z0),p(x1,y1,z1),p(x0,y1,z1)],c[1]||'#eee7d9');shape([p(x0,y0,z1),p(x1,y0,z1),p(x1,y1,z1),p(x0,y1,z1)],c[2]||'#d2c6b4');shape([p(x1,y0,z0),p(x0,y0,z0),p(x0,y1,z0),p(x1,y1,z0)],c[3]||'#e0d5c3');shape([p(x0,y0,z0),p(x0,y0,z1),p(x0,y1,z1),p(x0,y1,z0)],c[4]||'#c1b6a5');shape([p(x1,y0,z1),p(x1,y0,z0),p(x1,y1,z0),p(x1,y1,z1)],c[5]||'#bcb1a0')}
+    function column(x,z,yt,ht,r=1.2){const n=8;for(let i=0;i<n;i++){let a=i*Math.PI*2/n,b=(i+1)*Math.PI*2/n;let x0=x+Math.sin(a)*r,z0=z+Math.cos(a)*r,x1=x+Math.sin(b)*r,z1=z+Math.cos(b)*r;let light=['#d6cbb7','#e0d5bf','#ebe2d0','#e3d7c4','#c8bfad','#b7afa2','#c8bdab','#d4cab7'];shape([[x0,yt,z0],[x1,yt,z1],[x1,yt+ht,z1],[x0,yt+ht,z0]],light[i])}box(x,yt-.4,z,r*2.55,.8,r*2.55,['#bbb0a0','#e7ddc8','#d0c5b3','#d9cfbc']);box(x,yt+ht-.3,z,r*2.65,.85,r*2.65,['#bbb0a0','#e9dec9','#c7bba9','#d9ccba'])}
+    // National Mall base, walking paths and Reflecting Pool.
+    for(let z=-130;z<300;z+=20){for(let x=-150;x<150;x+=20){shape([[x,-.22,z],[x+20,-.22,z],[x+20,-.22,z+20],[x,-.22,z+20]],((Math.round(x/20)+Math.round(z/20))%4===0)?'#7c9580':'#829b84')}}
+    shape([[-33,.03,-32],[33,.03,-32],[33,.03,139],[-33,.03,139]],'#beaF8e');
+    shape([[-29,.045,-30],[-10,.045,-30],[-10,.045,138],[-29,.045,138]],'#cdbf9d');
+    shape([[10,.045,-30],[29,.045,-30],[29,.045,138],[10,.045,138]],'#ccbea1');
+    box(0,.05,65,18,.35,150,['#b1aa96','#a7c5c4','#9db9b6','#b4d5d3']);
+    shape([[-8.65,.45,-10],[8.65,.45,-10],[8.65,.45,140],[-8.65,.45,140]],'#69a8b3',{kind:'water'});
+    for(let i=0;i<75;i++){const z=-8+rnd()*144,x=(rnd()-.5)*15,w=1.4+rnd()*4;shape([[x,.49,z],[x+w,.49,z],[x+w+1,.49,z+1],[x+1,.49,z+1]],i%3?'#9dcbd0':'#daebe3',{alpha:.5})}
+    // Lincoln Memorial - blocky but dimensional architectural illustration, not a precise reconstruction.
+    box(0,.3,-77,46,4,28,['#bfb5a3','#f1e8d5','#e0d6c2','#dcd0bd']);
+    box(0,4.3,-78,42,18,21,['#b4ab9b','#d9d2c3','#c2b9aa','#c9c1b4']);
+    box(0,21.5,-77,50,3.2,31,['#b8ad9d','#f2ead9','#e2d7c3','#ddd4c6']);
+    box(0,24.2,-77,47,.9,29,['#c0b6a4','#f4ebd8','#e8dcc9','#d7cbb7']);
+    for(let x=-18;x<=18;x+=6){column(x,-64.2,4.8,16.2,1.22)}
+    for(let z=-88;z<=-66;z+=6.2){column(-21,z,4.8,16.2,1.15);column(21,z,4.8,16.2,1.15)}
+    box(0,4.3,-63,46,1.2,6,['#c6baaa','#e8decb','#dcd0bd','#ded2bf']);
+    for(let i=0;i<9;i++){const z=-62+i*2.2;box(0,.13+i*.39,z,48,.55,2.3,['#c1b5a2','#e9dfcc','#d5c9b6','#d9cdbc'])}
+    // Lectern is symbolic and placed near the speaking area.
+    box(0,4.6,-46,3.8,3.6,2.3,['#493d34','#6f5b46','#624d3e','#7a6048']);
+    box(0,8.15,-46,5,.45,2.6,['#72593f','#987854','#6b5038','#907051']);
+    // Washington Monument and its pyramidal cap.
+    box(0,.4,172,16,2.5,16,['#c1b9a7','#e7dfcb','#d0c6b5','#e3d9c7']);
+    box(0,2.7,172,7.5,67,7.5,['#bfb9ab','#f4ebd6','#e9e0cf','#d7d0c1']);
+    const xm=3.75,zm=172,base=69.7,top=78;
+    shape([[-xm,base,zm+xm],[xm,base,zm+xm],[0,top,zm]],'#e4dbc9');
+    shape([[xm,base,zm+xm],[xm,base,zm-xm],[0,top,zm]],'#c4c1b7');
+    shape([[xm,base,zm-xm],[-xm,base,zm-xm],[0,top,zm]],'#e6dfce');
+    shape([[-xm,base,zm-xm],[-xm,base,zm+xm],[0,top,zm]],'#e4d7c5');
+    // Tree rows form the Mall's central corridor.
+    for(let z=-18;z<153;z+=7.8){for(const sign of [-1,1]){const offset=27+rnd()*7;trees.push({x:sign*offset,y:0,z:z+rnd()*4,r:5+rnd()*3,h:7+rnd()*4,tint:Math.floor(rnd()*3)})}}
+    // Crowd on both sides of the Reflecting Pool, with a denser foreground.
+    const cloth=['#394e59','#ecdfc8','#b67e66','#657764','#4b4d63','#d8bb89','#a85b4d','#71959b','#424e49','#d1d7c8','#927e68'];
+    const skin=['#5c3c2d','#8c5c43','#b98260','#d1a17d','#7a4938','#e2b38a'];
+    for(let i=0;i<1050;i++){
+      let z=-33+rnd()*176;let x=(rnd()<.5?-1:1)*(10.5+rnd()*21);
+      if(z>132) x=(rnd()-.5)*65;
+      let scale=.65+rnd()*.4;people.push({x,y:.11,z,scale,cloth:cloth[Math.floor(rnd()*cloth.length)],skin:skin[Math.floor(rnd()*skin.length)]});
+    }
+    for(let i=0;i<95;i++) {let z=-41+rnd()*14,x=(rnd()-.5)*44;if(Math.abs(x)<5&&z<-38)continue;people.push({x,y:.4,z,scale:.8+rnd()*.3,cloth:cloth[Math.floor(rnd()*cloth.length)],skin:skin[Math.floor(rnd()*skin.length)]})}
+    // A few historically inspired banners represented as modest placards (no claim of exact signs).
+    for(let i=0;i<16;i++){const z=-27+rnd()*100,x=(rnd()<.5?-1:1)*(12+rnd()*12);box(x,2.8,z,1.9,1.5,.14,['#d5ba77','#faf0d9','#d5c297','#f3e4c1'])}
+    function resize(){const b=view.getBoundingClientRect();sw=Math.max(1,b.width);sh=Math.max(1,b.height);dpr=Math.min(devicePixelRatio||1,1.65);canvas.width=Math.round(sw*dpr);canvas.height=Math.round(sh*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+    addEventListener('resize',resize);resize();
+    function basis(){const sy=Math.sin(camera.yaw),cy=Math.cos(camera.yaw),sp=Math.sin(camera.pitch),cp=Math.cos(camera.pitch);return{right:[cy,0,-sy],up:[-sp*sy,cp,-sp*cy],forward:[sy*cp,sp,cy*cp]}}
+    let B,focal;
+    function project(p){let dx=p[0]-camera.x,dy=p[1]-camera.y,dz=p[2]-camera.z;let depth=dx*B.forward[0]+dy*B.forward[1]+dz*B.forward[2];if(depth<.7||depth>460)return null;return{x:sw*.5+(dx*B.right[0]+dz*B.right[2])*focal/depth,y:sh*.53-(dx*B.up[0]+dy*B.up[1]+dz*B.up[2])*focal/depth,d:depth}}
+    const fog=(hex,depth)=>{const w=clamp((depth-65)/350,0,.65);if(w<.01)return hex;const num=parseInt(hex.slice(1),16),r=(num>>16)&255,g=(num>>8)&255,b=num&255;const out=[r+(167-r)*w,g+(192-g)*w,b+(184-b)*w].map(x=>Math.round(x).toString(16).padStart(2,'0'));return'#'+out.join('')};
+    function drawFace(obj,pts,d){ctx.globalAlpha=obj.alpha;ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);ctx.closePath();ctx.fillStyle=fog(obj.fill,d);ctx.fill();if(obj.kind==='water'&&d<160){ctx.strokeStyle='#bedbd7aa';ctx.lineWidth=1;ctx.stroke()}ctx.globalAlpha=1}
+    function drawPerson(p,base,depth){let h=clamp(1.72*p.scale*focal/depth,.3,130),w=h*.39;if(h<.7)return;let x=base.x,y=base.y;
+      ctx.fillStyle=fog(p.cloth,depth);ctx.beginPath();ctx.moveTo(x-w*.32,y-h*.63);ctx.lineTo(x+w*.32,y-h*.63);ctx.lineTo(x+w*.54,y-h*.03);ctx.lineTo(x-w*.54,y-h*.03);ctx.closePath();ctx.fill();
+      ctx.fillStyle=fog(p.skin,depth);ctx.beginPath();ctx.ellipse(x,y-h*.79,Math.max(.3,w*.30),Math.max(.45,h*.18),0,0,Math.PI*2);ctx.fill();
+      if(h>6){ctx.strokeStyle='#384a4599';ctx.lineWidth=Math.min(1.3,h*.07);ctx.beginPath();ctx.moveTo(x-w*.18,y);ctx.lineTo(x-w*.16,y+h*.2);ctx.moveTo(x+w*.15,y);ctx.lineTo(x+w*.19,y+h*.2);ctx.stroke()}
+    }
+    function drawTree(t,base,depth){let top=project([t.x,t.h,t.z]);if(!top)return;let radius=clamp(t.r*focal/depth,1,200);ctx.strokeStyle=fog('#665f4c',depth);ctx.lineWidth=Math.max(.5,Math.min(radius*.19,13));ctx.beginPath();ctx.moveTo(base.x,base.y);ctx.lineTo(top.x,top.y+radius*.18);ctx.stroke();const palette=[['#426756','#6e8c70'],['#4c6c5a','#8ea17a'],['#587765','#8fa386']][t.tint];ctx.fillStyle=fog(palette[0],depth);ctx.beginPath();ctx.ellipse(top.x,top.y+radius*.1,radius*1.25,radius*.85,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=fog(palette[1],depth);ctx.beginPath();ctx.ellipse(top.x-radius*.2,top.y-radius*.14,radius*.82,radius*.57,0,0,Math.PI*2);ctx.fill()}
+    function sky(){const g=ctx.createLinearGradient(0,0,0,sh);g.addColorStop(0,'#85b0c6');g.addColorStop(.48,'#bed8d5');g.addColorStop(.72,'#e6dfc7');g.addColorStop(1,'#a8b3a0');ctx.fillStyle=g;ctx.fillRect(0,0,sw,sh);
+      const sun=ctx.createRadialGradient(sw*.75,sh*.18,0,sw*.75,sh*.18,sw*.55);sun.addColorStop(0,'#fff1c580');sun.addColorStop(.35,'#f7e9be33');sun.addColorStop(1,'#ffffff00');ctx.fillStyle=sun;ctx.fillRect(0,0,sw,sh);
+      const horizon=clamp(sh*.53+Math.tan(camera.pitch)*focal,-sh*.6,sh*1.5);const m=ctx.createLinearGradient(0,horizon-30,0,sh);m.addColorStop(0,'#a9b7a500');m.addColorStop(.1,'#7e9b87');m.addColorStop(1,'#587b70');ctx.fillStyle=m;ctx.fillRect(0,Math.max(0,horizon),sw,sh-Math.max(0,horizon));
+    }
+    const pins=[{id:'pin-memorial',pos:[0,29,-77]},{id:'pin-pool',pos:[0,2.5,52]},{id:'pin-monument',pos:[0,81,172]}];
+    function draw(){B=basis();focal=Math.min(sw*1.13,sh*1.22);sky();const drawList=[];
+      for(let j=0;j<shapes.length;j++){const obj=shapes[j],pts=[];let sum=0,valid=true;for(let i=0;i<obj.pts.length;i++){const p=project(obj.pts[i]);if(!p){valid=false;break}pts.push(p);sum+=p.d}if(valid)drawList.push({type:0,obj,pts,d:sum/pts.length})}
+      for(let j=0;j<trees.length;j++){const t=trees[j],p=project([t.x,t.y,t.z]);if(p)drawList.push({type:1,obj:t,pt:p,d:p.d})}
+      for(let j=0;j<people.length;j++){const p=people[j],pt=project([p.x,p.y,p.z]);if(pt)drawList.push({type:2,obj:p,pt,d:pt.d})}
+      drawList.sort((a,b)=>b.d-a.d);
+      for(let j=0;j<drawList.length;j++){const item=drawList[j];if(item.type===0)drawFace(item.obj,item.pts,item.d);else if(item.type===1)drawTree(item.obj,item.pt,item.d);else drawPerson(item.obj,item.pt,item.d)}
+      for(const pin of pins){let p=project(pin.pos),el=$(pin.id);if(p&&p.x>46&&p.x<sw-46&&p.y>40&&p.y<sh-80&&p.d<245){el.style.display='block';el.style.left=p.x+'px';el.style.top=p.y+'px'}else el.style.display='none'}
+    }
+    function animate(now){let dt=Math.min(50,(now-lastTime)||16);lastTime=now;const ease=reduce?1:1-Math.pow(.936,dt/16);for(const [a,b] of [['x','tx'],['y','ty'],['z','tz'],['yaw','tyaw'],['pitch','tpitch']])camera[a]=lerp(camera[a],camera[b],ease);draw();requestAnimationFrame(animate)}
+    requestAnimationFrame(animate);
+    function renderStop(){let s=stops[current];$('stepCount').textContent=String(current+1).padStart(2,'0')+' / 05';$('chapter').textContent='STOP '+String(current+1).padStart(2,'0')+' · '+s.chapter;$('storyTitle').textContent=s.title;$('storyCopy').textContent=s.copy;$('factText').textContent=s.fact;$('thinkText').textContent=s.think;$('reflectAnswer').textContent=s.idea;$('reflectAnswer').classList.remove('open');$('reflectToggle').textContent='Explore an idea +';$('reflectToggle').setAttribute('aria-expanded','false');$('prev').disabled=current===0;$('next').innerHTML=current===stops.length-1?'Take the mini quiz <span aria-hidden="true">↗</span>':'Next stop <span aria-hidden="true">→</span>';document.querySelectorAll('.progress-bar').forEach((e,i)=>{e.classList.toggle('done',i<current);e.classList.toggle('active',i===current)});document.querySelectorAll('.stop-tab').forEach((e,i)=>{e.classList.toggle('active',i===current);e.setAttribute('aria-current',i===current?'step':'false')});setCameraFromStop(current);}
+    function goto(i){if(i<0||i>=stops.length)return;current=i;renderStop()}
+    $('stopNav').innerHTML=stops.map((s,i)=>`<button class="stop-tab${i===0?' active':''}" type="button" data-stop="${i}" aria-current="${i===0?'step':'false'}"><b>${String(i+1).padStart(2,'0')}</b>${s.tab}</button>`).join('');
+    $('progress').innerHTML=stops.map((s,i)=>`<span class="progress-bar${i===0?' active':''}"></span>`).join('');
+    $('stopNav').addEventListener('click',e=>{const b=e.target.closest('[data-stop]');if(b)goto(Number(b.dataset.stop))});
+    document.querySelectorAll('.hotspot').forEach(b=>b.addEventListener('click',()=>goto(Number(b.dataset.go))));
+    $('next').addEventListener('click',()=>{if(current===stops.length-1)startQuiz();else goto(current+1)});$('prev').addEventListener('click',()=>goto(current-1));
+    $('reflectToggle').addEventListener('click',()=>{const open=$('reflectAnswer').classList.toggle('open');$('reflectToggle').textContent=open?'Hide idea −':'Explore an idea +';$('reflectToggle').setAttribute('aria-expanded',String(open))});
+    $('resetView').addEventListener('click',()=>setCameraFromStop(current));
+    $('fullscreen').addEventListener('click',()=>{if(!document.fullscreenElement){(view.requestFullscreen?.()||Promise.resolve()).catch(()=>{})}else document.exitFullscreen?.()});
+    canvas.addEventListener('pointerdown',e=>{if(e.button!==0&&e.pointerType==='mouse')return;canvas.setPointerCapture(e.pointerId);drag={x:e.clientX,y:e.clientY};});
+    canvas.addEventListener('pointermove',e=>{if(!drag)return;let dx=e.clientX-drag.x,dy=e.clientY-drag.y;drag.x=e.clientX;drag.y=e.clientY;camera.tyaw-=dx*.004;camera.tpitch=clamp(camera.tpitch+dy*.0028,-.86,.66)});
+    canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);
+    document.addEventListener('keydown',e=>{if(document.querySelector('.modal-shade.open')){if(e.key==='Escape')closeModal();return}if(['INPUT','TEXTAREA'].includes(e.target.tagName))return;if(e.key==='ArrowRight'){goto(Math.min(current+1,4));e.preventDefault()}if(e.key==='ArrowLeft'){goto(Math.max(current-1,0));e.preventDefault()}if(e.key.toLowerCase()==='r')setCameraFromStop(current);if(e.key.toLowerCase()==='a')camera.tyaw-=.13;if(e.key.toLowerCase()==='d')camera.tyaw+=.13});
+    function openModal(id){$(id).classList.add('open');const btn=$(id).querySelector('button');btn?.focus()};function closeModal(){document.querySelectorAll('.modal-shade').forEach(x=>x.classList.remove('open'))}
+    $('helpButton').addEventListener('click',()=>openModal('helpModal'));document.querySelectorAll('[data-close]').forEach(el=>el.addEventListener('click',()=>closeModal()));document.querySelectorAll('.modal-shade').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal()}));
+    const quiz=[{q:'What was the official name of the 1963 gathering?',options:['The March on Washington for Jobs and Freedom','The March to Mount Vernon','The Lincoln Birthday Parade'],a:0,why:'The march connected civil rights to the need for fair jobs and opportunity.'},{q:'Where did Dr. King give his “I Have a Dream” speech?',options:['Inside the White House','On the steps of the Lincoln Memorial','At the Washington Monument'],a:1,why:'Dr. King spoke at the Lincoln Memorial, facing the Reflecting Pool and National Mall.'},{q:'Which technique made the phrase “I have a dream” especially memorable?',options:['Repetition','A mathematical equation','A whispered conversation'],a:0,why:'Repetition reinforces a message and helps an audience remember it.'}];
+    let question=0,score=0,answered=false;
+    function startQuiz(){question=0;score=0;renderQuestion();openModal('quizModal')}
+    function renderQuestion(){answered=false;const q=quiz[question];$('quizProgress').textContent='QUESTION '+(question+1)+' OF '+quiz.length;$('quizBody').innerHTML=`<p class="quiz-prompt">${q.q}</p><div class="quiz-options">${q.options.map((o,i)=>`<button class="answer" type="button" data-answer="${i}">${o}</button>`).join('')}</div>`;$('quizFeedback').textContent='';$('quizNext').style.display='none';$('quizBody').querySelectorAll('[data-answer]').forEach(b=>b.addEventListener('click',()=>answerQuestion(Number(b.dataset.answer))))}
+    function answerQuestion(i){if(answered)return;answered=true;const q=quiz[question];if(i===q.a)score++;$('quizBody').querySelectorAll('.answer').forEach((b,j)=>{b.disabled=true;if(j===q.a)b.classList.add('correct');else if(j===i)b.classList.add('wrong')});$('quizFeedback').textContent=(i===q.a?'✓ You got it! ':'Good try! ')+q.why;$('quizNext').textContent=question===quiz.length-1?'See my results →':'Next question →';$('quizNext').style.display='inline-flex'}
+    $('quizNext').addEventListener('click',()=>{if(question<quiz.length-1){question++;renderQuestion()}else{$('quizProgress').textContent='TOUR COMPLETE';$('quizBody').innerHTML=`<p class="quiz-prompt" style="font-family:Georgia,serif;font-size:24px">You answered ${score} of ${quiz.length} questions correctly.</p><p class="small">History is more than remembering dates. It is also about listening, questioning, and thinking about how people work together for change.</p>`;$('quizFeedback').textContent='Thank you for exploring the March on Washington.';$('quizNext').textContent='Explore again ↺';$('quizNext').style.display='inline-flex';$('quizNext').onclick=()=>{closeModal();goto(0);$('quizNext').onclick=null}}});
+  })();
+  </script>
+</body>
+</html>

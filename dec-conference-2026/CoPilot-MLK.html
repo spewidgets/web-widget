@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dream on the Mall | 3D Virtual Tour</title>
+<style>
+:root{--navy:#081a33;--blue:#163b68;--gold:#f4c95d;--sky:#bfe2ff;--ink:#102033;--paper:#fffdf5;--accent:#e85d3f}
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#061426;color:white;overflow:hidden}
+button{font:inherit}.skip{position:fixed;left:8px;top:-60px;z-index:99;background:white;color:#111;padding:10px}.skip:focus{top:8px}
+header{position:fixed;z-index:20;top:0;left:0;right:0;display:flex;align-items:center;gap:16px;padding:12px 20px;background:linear-gradient(180deg,rgba(4,15,30,.95),rgba(4,15,30,.55),transparent)}
+.brand{font-weight:900;letter-spacing:.04em}.brand span{color:var(--gold)}.progress{flex:1;height:8px;background:#ffffff25;border-radius:9px;overflow:hidden}.progress i{display:block;height:100%;width:20%;background:var(--gold);transition:.4s}
+#scene{height:100vh;perspective:900px;background:linear-gradient(#7fbdee 0 53%,#afd5ef 53% 54%,#d2c3a2 54%);position:relative;overflow:hidden}
+.world{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
+.sun{position:absolute;width:120px;height:120px;border-radius:50%;background:#ffe8a3;right:10%;top:12%;box-shadow:0 0 60px #ffe7a8}
+.reflect{position:absolute;left:10%;right:10%;height:28%;bottom:0;background:linear-gradient(90deg,#6da4c2,#a9d9e8 45%,#77abc8);clip-path:polygon(8% 0,92% 0,100% 100%,0 100%);opacity:.8}
+.mall{position:absolute;left:8%;right:8%;height:34%;bottom:0;background:linear-gradient(#aebd7b,#658a4f);clip-path:polygon(13% 0,87% 0,100% 100%,0 100%)}
+.memorial{position:absolute;left:50%;top:31%;width:380px;height:190px;transform:translateX(-50%) translateZ(0);filter:drop-shadow(0 18px 18px #1238)}
+.roof{height:28px;background:#f2eee0;clip-path:polygon(5% 0,95% 0,100% 100%,0 100%)}.columns{height:130px;background:repeating-linear-gradient(90deg,#e8e3d4 0 14px,#9d998e 14px 18px,transparent 18px 37px);border:14px solid #ede9dc}.steps{height:32px;background:repeating-linear-gradient(#bbb6a9 0 6px,#e5e0d3 6px 11px)}
+.crowd{position:absolute;left:15%;right:15%;bottom:24%;height:16%;background:radial-gradient(circle at 12px 12px,#382a25 0 4px,transparent 5px) 0 0/24px 22px;opacity:.8;transform:translateZ(100px)}
+.podium{position:absolute;left:50%;top:49%;width:54px;height:60px;transform:translateX(-50%) translateZ(120px);background:#6b341f;border-top:7px solid #d59b55;box-shadow:0 15px 14px #0005}
+.hotspot{position:absolute;z-index:12;width:48px;height:48px;border-radius:50%;border:3px solid white;background:var(--gold);color:#14213d;font-weight:900;cursor:pointer;box-shadow:0 0 0 8px #f4c95d55,0 8px 20px #0008;animation:pulse 2s infinite}.hotspot:hover,.hotspot:focus{transform:scale(1.12);outline:4px solid #fff}.hotspot.done{background:#70d69a}@keyframes pulse{50%{box-shadow:0 0 0 16px transparent,0 8px 20px #0008}}
+#h1{left:19%;top:45%}#h2{left:47%;top:36%}#h3{right:20%;top:48%}#h4{left:32%;bottom:17%}#h5{right:31%;bottom:14%}
+.controls{position:fixed;z-index:22;left:18px;bottom:18px;display:flex;gap:8px}.controls button,.topbtn{border:1px solid #ffffff55;background:#061a30dd;color:white;padding:10px 14px;border-radius:999px;cursor:pointer}.controls button:hover,.topbtn:hover{background:#173b63}.topbtn{margin-left:auto}
+.panel{position:fixed;z-index:30;right:18px;top:72px;width:min(390px,calc(100% - 36px));max-height:calc(100vh - 145px);overflow:auto;background:var(--paper);color:var(--ink);border-radius:20px;padding:24px;box-shadow:0 25px 60px #0008;transform:translateX(120%);transition:.45s}.panel.open{transform:none}.panel .eyebrow{font-weight:800;color:#9a3c28;text-transform:uppercase;font-size:.78rem;letter-spacing:.12em}.panel h2{margin:.3rem 0}.panel p{line-height:1.55}.close{float:right;border:0;background:#e8edf3;border-radius:50%;width:36px;height:36px;cursor:pointer}.think{background:#edf6ff;border-left:5px solid #3478b8;padding:12px;border-radius:9px}.quiz button{display:block;width:100%;text-align:left;margin:8px 0;padding:10px;border:1px solid #adc0d4;border-radius:9px;background:white;cursor:pointer}.quiz button.correct{background:#c7f0d4}.quiz button.wrong{background:#ffd8d0}
+.legend{position:fixed;z-index:18;left:18px;top:76px;background:#071a30cc;padding:10px 14px;border-radius:12px;font-size:.85rem}.caption{position:fixed;z-index:18;bottom:20px;left:50%;transform:translateX(-50%);background:#061a30dd;padding:10px 16px;border-radius:999px;white-space:nowrap}
+@media(max-width:700px){.brand small{display:none}.memorial{width:280px}.legend{display:none}.caption{bottom:74px;font-size:.8rem}.controls{right:18px;justify-content:center}.progress{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#h1">Skip to tour stops</a>
+<header><div class="brand"><span>DREAM</span> ON THE MALL <small>• 3D learning tour</small></div><div class="progress" aria-label="Tour progress"><i id="bar"></i></div><button class="topbtn" id="help">How to explore</button></header>
+<main id="scene" aria-label="Stylized 3D view of the 1963 March on Washington">
+<div class="world" id="world" aria-hidden="true"><div class="sun"></div><div class="reflect"></div><div class="mall"></div><div class="memorial"><div class="roof"></div><div class="columns"></div><div class="steps"></div></div><div class="crowd"></div><div class="podium"></div></div>
+<button class="hotspot" id="h1" data-stop="0" aria-label="Stop 1: The March">1</button><button class="hotspot" id="h2" data-stop="1" aria-label="Stop 2: The Place">2</button><button class="hotspot" id="h3" data-stop="2" aria-label="Stop 3: The Message">3</button><button class="hotspot" id="h4" data-stop="3" aria-label="Stop 4: Powerful Words">4</button><button class="hotspot" id="h5" data-stop="4" aria-label="Stop 5: Your Dream">5</button>
+<div class="legend">Select a glowing number to visit a stop.</div><div class="caption" id="caption">Washington, D.C. • August 28, 1963</div>
+</main>
+<div class="controls"><button id="left" aria-label="Rotate view left">↶ Rotate</button><button id="reset">Center view</button><button id="right" aria-label="Rotate view right">Rotate ↷</button></div>
+<aside class="panel" id="panel" aria-live="polite"><button class="close" id="close" aria-label="Close panel">×</button><div id="content"></div></aside>
+<script>
+const stops=[
+{tag:'Stop 1 · Set the scene',title:'The March on Washington',text:'On August 28, 1963, about 250,000 people gathered for the March on Washington for Jobs and Freedom. People traveled by bus, train, car, and airplane to call for fair jobs and equal rights.',think:'Imagine arriving in such a huge crowd. What sights and sounds might you notice?',q:'What was one major goal of the march?',a:['Fair jobs and equal rights','A longer school day','A new national park'],correct:0},
+{tag:'Stop 2 · Place matters',title:'At the Lincoln Memorial',text:'Dr. Martin Luther King Jr. spoke from the steps of the Lincoln Memorial. The location connected his call for justice to Abraham Lincoln and the unfinished promise of freedom after emancipation.',think:'Why can the place where a speech happens add meaning?',q:'Why was the Lincoln Memorial a powerful setting?',a:['It connected the speech to freedom and history','It was the newest building','Only reporters could enter'],correct:0},
+{tag:'Stop 3 · Big idea',title:'A Dream of Justice',text:'King described a future in which the nation would live up to its promises of equality. He asked listeners to imagine change while also urging peaceful, organized action.',think:'A dream can be a hope and a plan. What is the difference?',q:'Which idea best summarizes the speech?',a:['Equality requires hope and action','Change happens by itself','Only leaders can help'],correct:0},
+{tag:'Stop 4 · Speaker craft',title:'Words That Build Momentum',text:'King used repetition, vivid images, rhythm, and references to American history. Repeated phrases helped the audience follow the message and made key ideas memorable.',think:'Say “I have a dream” twice, changing your pace. How does rhythm affect the words?',q:'Why do speakers repeat an important phrase?',a:['To build emphasis and help people remember','To make the speech confusing','To avoid having a message'],correct:0},
+{tag:'Stop 5 · Make meaning',title:'Carry the Dream Forward',text:'The speech remains an invitation to examine whether communities are fair and to take constructive action. Progress can begin with listening, learning, speaking up, and working with others.',think:'Name one fair, peaceful action students can take to improve their school or community.',q:'Which is a constructive next step?',a:['Listen, learn, and work with others','Ignore unfairness','Exclude people who disagree'],correct:0}
+];
+let visited=new Set(),angle=0; const panel=document.getElementById('panel'),content=document.getElementById('content');
+function openStop(i){let s=stops[i];visited.add(i);document.querySelector(`[data-stop="${i}"]`).classList.add('done');document.getElementById('bar').style.width=(visited.size*20)+'%';content.innerHTML=`<div class="eyebrow">${s.tag}</div><h2>${s.title}</h2><p>${s.text}</p><div class="think"><strong>Think about it</strong><br>${s.think}</div><div class="quiz"><h3>Quick check</h3><p>${s.q}</p>${s.a.map((x,j)=>`<button data-answer="${j}" data-correct="${s.correct}">${x}</button>`).join('')}<p id="feedback" aria-live="polite"></p></div>`;panel.classList.add('open');document.querySelector('.panel h2').focus?.();document.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{let ok=+b.dataset.answer===+b.dataset.correct;b.className=ok?'correct':'wrong';document.getElementById('feedback').textContent=ok?'Correct! Nice thinking.':'Not quite. Try another answer.'})}
+document.querySelectorAll('.hotspot').forEach(b=>b.onclick=()=>openStop(+b.dataset.stop));document.getElementById('close').onclick=()=>panel.classList.remove('open');
+function turn(d){angle=Math.max(-18,Math.min(18,angle+d));document.getElementById('world').style.transform=`rotateY(${angle}deg) scale(1.04)`}
+document.getElementById('left').onclick=()=>turn(-6);document.getElementById('right').onclick=()=>turn(6);document.getElementById('reset').onclick=()=>{angle=0;turn(0)};
+document.getElementById('help').onclick=()=>{content.innerHTML='<div class="eyebrow">Explorer guide</div><h2>How to use this tour</h2><p>Choose the five glowing stops in any order. Read each short story, answer the quick check, and use the rotate buttons to shift the 3D view.</p><p><strong>Keyboard:</strong> press Tab to move between controls and Enter to choose one.</p><p>This is a stylized learning scene, not a photographic reconstruction.</p>';panel.classList.add('open')};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')panel.classList.remove('open');if(e.key==='ArrowLeft')turn(-6);if(e.key==='ArrowRight')turn(6)});
+</script>
+</body></html>

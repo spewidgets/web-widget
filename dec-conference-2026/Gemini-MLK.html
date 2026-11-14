@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Virtual Tour: Dr. King's Speech at the March on Washington (1963)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
+        }
+        .serif-font {
+            font-family: 'Merriweather', serif;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+        /* Floating 3D Hotspot Markers */
+        .hotspot-marker {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .hotspot-marker:hover {
+            transform: translate(-50%, -50%) scale(1.18);
+            z-index: 20;
+        }
+        .hotspot-pulse {
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); }
+            70% { box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+        }
+        /* Audio Waveform Animation */
+        .wave-bar {
+            width: 4px;
+            background-color: #fbbf24;
+            border-radius: 9999px;
+            animation: wave-bounce 0.8s infinite ease-in-out;
+        }
+        .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.2s; }
+        @keyframes wave-bounce {
+            0%, 100% { height: 6px; }
+            50% { height: 20px; }
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(251, 191, 36, 0.8);
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Dynamic 3D HTML Overlays (Hotspots) -->
+    <div id="hotspots-layer" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="relative z-30 flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-slate-900/85 backdrop-blur-md border-b border-slate-700/70 shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-400 shadow-inner">
+                <i class="fa-solid fa-landmark text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white">August 28, 1963: 3D History Tour</h1>
+                    <span class="hidden md:inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                        Grades 6–8 Interactive
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300 hidden sm:block">The March on Washington &amp; Dr. Martin Luther King Jr.'s Historic Speech</p>
+            </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex items-center gap-2 flex-wrap">
+            <!-- Time of Day / Lighting Toggle -->
+            <button id="btn-lighting" onclick="toggleAtmosphere()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600/80 text-xs font-semibold flex items-center gap-1.5 transition shadow" title="Switch Sky Lighting">
+                <i id="lighting-icon" class="fa-solid fa-sun text-amber-400"></i>
+                <span id="lighting-label" class="hidden md:inline">Afternoon Sun</span>
+            </button>
+
+            <!-- Reset Camera Button -->
+            <button onclick="resetFreeCamera()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600/80 text-xs font-semibold flex items-center gap-1.5 transition shadow" title="Overview Camera">
+                <i class="fa-solid fa-compass text-sky-400"></i>
+                <span class="hidden md:inline">Overview</span>
+            </button>
+
+            <!-- Quiz / Scavenger Hunt Modal Button -->
+            <button onclick="openQuizModal()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/40 text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-indigo-950/50">
+                <i class="fa-solid fa-award text-amber-300"></i>
+                <span>History Quiz</span>
+                <span id="quiz-score-badge" class="ml-1 px-1.5 py-0.2 bg-indigo-900/90 text-amber-300 rounded-md text-[11px]">0/5</span>
+            </button>
+
+            <!-- Download HTML Page Button -->
+            <button onclick="downloadStandaloneHTML()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 text-xs font-bold flex items-center gap-1.5 transition shadow-md shadow-emerald-950/50">
+                <i class="fa-solid fa-download"></i>
+                <span>Download HTML</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Camera Controls Helper Pill (Top Left below header) -->
+    <div class="relative z-20 pointer-events-none flex justify-between items-start px-4 pt-3">
+        <div class="pointer-events-auto bg-slate-900/75 backdrop-blur-md border border-slate-700/70 rounded-xl px-3.5 py-2 text-xs text-slate-300 shadow-lg flex items-center gap-3">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-computer-mouse text-amber-400"></i> <b>Drag</b> to Rotate</span>
+            <span class="text-slate-600">|</span>
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass-plus text-sky-400"></i> <b>Scroll/Pinch</b> to Zoom</span>
+            <span class="text-slate-600 hidden sm:inline">|</span>
+            <span class="hidden sm:flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-emerald-400"></i> <b>Click Numbered Pins</b></span>
+        </div>
+    </div>
+
+    <!-- Main Interactive Content Card (Right / Bottom Drawer) -->
+    <aside id="info-panel" class="fixed z-30 right-4 top-20 bottom-20 w-[92vw] sm:w-[430px] bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-transform duration-300">
+        
+        <!-- Panel Header -->
+        <div class="p-4 bg-gradient-to-r from-slate-800/90 to-slate-900 border-b border-slate-700/80 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <span id="stop-number-badge" class="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 font-black text-sm flex items-center justify-center shadow">
+                    1
+                </span>
+                <div>
+                    <span id="stop-subtitle" class="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">Station 1 of 5</span>
+                    <h2 id="stop-title" class="text-base sm:text-lg font-extrabold text-white leading-tight">The Lincoln Memorial Steps</h2>
+                </div>
+            </div>
+
+            <!-- Read Aloud Button (Web Speech API) -->
+            <button id="btn-speak" onclick="toggleSpeech()" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 text-xs font-bold flex items-center gap-2 transition" title="Listen to Narration">
+                <i id="speak-icon" class="fa-solid fa-volume-high"></i>
+                <span id="speak-label">Listen</span>
+                <div id="waveform" class="hidden items-center gap-0.5 h-4 ml-1">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+            </button>
+        </div>
+
+        <!-- Panel Body (Scrollable) -->
+        <div id="panel-scroll" class="p-4 overflow-y-auto flex-1 space-y-4 text-sm text-slate-200 leading-relaxed">
+            
+            <!-- Historical Fact Banner -->
+            <div class="p-3 rounded-xl bg-indigo-950/60 border border-indigo-500/30 flex items-start gap-3">
+                <i class="fa-solid fa-clock-rotate-left text-indigo-400 text-base mt-0.5"></i>
+                <div id="stop-quick-fact" class="text-xs text-indigo-200">
+                    <!-- Dynamic quick fact -->
+                </div>
+            </div>
+
+            <!-- Main Narrative Content -->
+            <div id="stop-description" class="space-y-3 text-slate-200">
+                <!-- Dynamic narrative paragraphs -->
+            </div>
+
+            <!-- Interactive Sub-Widget Container (Themes / Crowd Stats / Mahalia Prompt / Legacy) -->
+            <div id="stop-interactive-widget" class="pt-1">
+                <!-- Dynamic interactive element injected by JS -->
+            </div>
+
+            <!-- Vocabulary Box for Middle Schoolers -->
+            <div class="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2 flex items-center gap-1.5">
+                    <i class="fa-solid fa-book-open"></i> Key Vocabulary Words
+                </h3>
+                <div id="stop-vocab" class="space-y-2 text-xs">
+                    <!-- Dynamic vocabulary list -->
+                </div>
+            </div>
+
+            <!-- Reflection Question for Students -->
+            <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-amber-300 mb-1 flex items-center gap-1.5">
+                    <i class="fa-solid fa-lightbulb"></i> Think About It
+                </h3>
+                <p id="stop-reflection" class="text-xs text-amber-100/90 italic"></p>
+            </div>
+        </div>
+
+        <!-- Panel Footer: Previous / Next Station Controls -->
+        <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between gap-2">
+            <button onclick="prevStop()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition border border-slate-700">
+                <i class="fa-solid fa-arrow-left"></i> Previous Stop
+            </button>
+
+            <!-- Toggle Panel Collapse on Mobile -->
+            <button onclick="togglePanelMinimize()" class="sm:hidden px-3 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">
+                <i id="minimize-icon" class="fa-solid fa-chevron-down"></i> Hide
+            </button>
+
+            <button onclick="nextStop()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 transition shadow-md">
+                Next Stop <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Bottom Guided Tour Dock -->
+    <nav class="fixed z-30 bottom-4 left-4 right-4 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 bg-slate-900/90 backdrop-blur-xl border border-slate-700/80 rounded-2xl px-3 py-2 shadow-2xl flex items-center justify-between sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto">
+        <button onclick="selectStop(0)" id="dock-btn-0" class="dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-[11px] font-black">1</span>
+            <span>Lincoln Steps</span>
+        </button>
+        <button onclick="selectStop(1)" id="dock-btn-1" class="dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[11px] font-black">2</span>
+            <span>Crowd of 250,000</span>
+        </button>
+        <button onclick="selectStop(2)" id="dock-btn-2" class="dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[11px] font-black">3</span>
+            <span>The Podium</span>
+        </button>
+        <button onclick="selectStop(3)" id="dock-btn-3" class="dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[11px] font-black">4</span>
+            <span>Key Themes</span>
+        </button>
+        <button onclick="selectStop(4)" id="dock-btn-4" class="dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap">
+            <span class="w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[11px] font-black">5</span>
+            <span>Reflecting Pool</span>
+        </button>
+    </nav>
+
+    <!-- Quiz Modal (Hidden by default) -->
+    <div id="quiz-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="p-4 bg-gradient-to-r from-indigo-900/80 to-slate-900 border-b border-slate-700 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-graduation-cap text-amber-400 text-xl"></i>
+                    <div>
+                        <h2 class="text-base font-extrabold text-white">March on Washington Challenge</h2>
+                        <p class="text-xs text-slate-300">Test what you discovered on the 3D Virtual Tour!</p>
+                    </div>
+                </div>
+                <button onclick="closeQuizModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div id="quiz-body" class="p-5 overflow-y-auto space-y-4 flex-1">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="p-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+                <div id="quiz-progress-text" class="text-xs font-semibold text-slate-400">Question 1 of 5</div>
+                <div class="flex gap-2">
+                    <button onclick="resetQuiz()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">
+                        Restart Quiz
+                    </button>
+                    <button onclick="closeQuizModal()" class="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold">
+                        Back to 3D Tour
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-banner" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xl border border-emerald-400/50 items-center gap-2">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="toast-message">HTML file downloaded!</span>
+    </div>
+
+    <script>
+        /********************************************************************
+         * 1. TOUR DATA: 5 STATIONS TAILORED FOR MIDDLE SCHOOL (GRADES 6-8)
+         ********************************************************************/
+        const tourStops = [
+            {
+                id: 0,
+                title: "The Lincoln Memorial Steps",
+                subtitle: "Station 1 of 5 • Symbolic Setting",
+                position: { x: 0, y: 12.5, z: -48 },
+                cameraPos: { x: 24, y: 18, z: -20 },
+                lookAt: { x: 0, y: 11, z: -58 },
+                quickFact: "1863 to 1963: The March took place exactly 100 years after President Abraham Lincoln signed the Emancipation Proclamation.",
+                description: [
+                    "Welcome to the National Mall in Washington, D.C.! You are standing in front of the <strong>Lincoln Memorial</strong> on August 28, 1963.",
+                    "Civil rights leaders chose this exact landmark on purpose. Inside the marble chamber sits a 19-foot statue of President Abraham Lincoln, who issued the <strong>Emancipation Proclamation</strong> a century earlier in 1863 to begin ending slavery.",
+                    "At the start of his speech, Dr. Martin Luther King Jr. reminded America that even though 100 years had passed since Lincoln's signature, Black Americans were still not treated as free and equal citizens due to segregation and unfair laws."
+                ],
+                vocab: [
+                    { word: "Emancipation Proclamation", def: "An 1863 executive order by President Lincoln that declared enslaved people in Confederate states to be free." },
+                    { word: "Segregation", def: "The enforced separation of different racial groups in schools, housing, restaurants, and public transportation." }
+                ],
+                reflection: "Why do you think delivering a civil rights speech on the steps of the Lincoln Memorial made the message even more powerful?",
+                widgetType: "timeline"
+            },
+            {
+                id: 1,
+                title: "The Crowd of 250,000 Marchers",
+                subtitle: "Station 2 of 5 • People Power",
+                position: { x: -12, y: 3.5, z: -12 },
+                cameraPos: { x: -26, y: 12, z: -26 },
+                lookAt: { x: 0, y: 2, z: 10 },
+                quickFact: "Over 2,000 buses, 21 chartered trains, and 10 extra airliners brought people from all across the United States!",
+                description: [
+                    "Look out across the grass and around the Reflecting Pool. Over <strong>250,000 people</strong> of all races, faiths, and backgrounds gathered here for the <em>March on Washington for Jobs and Freedom</em>.",
+                    "Organizing a peaceful gathering of a quarter-million people took incredible teamwork. Veteran labor leader <strong>A. Philip Randolph</strong> and master strategist <strong>Bayard Rustin</strong> coordinated water stations, first-aid tents, thousands of marshals, and a massive sound system in just eight weeks!",
+                    "Marchers carried signs demanding fair wages, integrated schools, voting rights, and an end to housing discrimination."
+                ],
+                vocab: [
+                    { word: "Coalition", def: "An alliance of different groups (civil rights organizations, labor unions, and religious leaders) working toward a common goal." },
+                    { word: "Nonviolent Protest", def: "Peacefully demonstrating for social change without using physical force, even when facing opposition." }
+                ],
+                reflection: "Imagine traveling overnight on a crowded bus in 1963 with no smartphones or social media. How did organizers spread the word to 250,000 people?",
+                widgetType: "organizers"
+            },
+            {
+                id: 2,
+                title: "The Podium & Mahalia Jackson's Prompt",
+                subtitle: "Station 3 of 5 • A Spontaneous Moment",
+                position: { x: 0, y: 7.2, z: -38 },
+                cameraPos: { x: 7, y: 9.2, z: -30 },
+                lookAt: { x: 0, y: 6.5, z: -40 },
+                quickFact: "Dr. King was the 10th and final speaker of the afternoon. The most famous part of his speech wasn't even in his written notes!",
+                description: [
+                    "Step right up to the speaker's podium, surrounded by a cluster of microphones from radio and television networks broadcasting live across the globe.",
+                    "Dr. King started by reading from his prepared speech, which compared the U.S. Constitution and Declaration of Independence to a 'promissory note'—a promise of liberty and justice that every American deserved to cash.",
+                    "Partway through, famous gospel singer <strong>Mahalia Jackson</strong>, who was standing right behind him on the steps, called out: <em>'Tell them about the dream, Martin!'</em>",
+                    "Hearing his friend's encouragement, Dr. King set his written pages aside, gripped the edges of the lectern, and spoke straight from the heart about his vision for America's future."
+                ],
+                vocab: [
+                    { word: "Promissory Note", def: "A written promise to pay someone a specific sum; Dr. King used this metaphor for America's promise of equal rights." },
+                    { word: "Improvisation", def: "Speaking or performing spontaneously without sticking strictly to a prepared script." }
+                ],
+                reflection: "Have you ever practiced a presentation, only to speak from your heart when the moment arrived? Why did that moment connect so deeply with the audience?",
+                widgetType: "podium"
+            },
+            {
+                id: 3,
+                title: "Core Themes of the Speech",
+                subtitle: "Station 4 of 5 • Rhetoric & Vision",
+                position: { x: 9, y: 6.5, z: -36 },
+                cameraPos: { x: -10, y: 10, z: -28 },
+                lookAt: { x: 0, y: 7, z: -40 },
+                quickFact: "The speech lasted 16 minutes and used musical rhythm, repetition (anaphora), and geographic imagery from across America.",
+                description: [
+                    "Dr. King's speech is studied around the world as a masterpiece of persuasive speaking. Instead of using anger or division, he painted a hopeful picture of what the United States could become if it lived up to its founding ideals.",
+                    "He structured his speech in three powerful stages: first reminding the nation of its unkept promises since 1863, second urging peaceful determination right now, and finally sharing his vision of unity where people are judged by their character rather than their skin color.",
+                    "Click through the interactive theme explorer below to examine the four main pillars of Dr. King's message!"
+                ],
+                vocab: [
+                    { word: "Anaphora", def: "A literary device where a speaker repeats a key phrase at the beginning of consecutive sentences to build rhythm and emotion." },
+                    { word: "Creed", def: "A guiding belief or principle—specifically the American belief stated in 1776 that 'all men are created equal.'" }
+                ],
+                reflection: "Why is repeating a key phrase (anaphora) combined with vivid metaphors such an effective way to help millions of listeners remember a message?",
+                widgetType: "themes"
+            },
+            {
+                id: 4,
+                title: "The Reflecting Pool & Lasting Legacy",
+                subtitle: "Station 5 of 5 • Laws Changed & Your Role",
+                position: { x: 0, y: 1.8, z: 32 },
+                cameraPos: { x: 0, y: 14, z: 72 },
+                lookAt: { x: 0, y: 6, z: -40 },
+                quickFact: "Look across the 2,000-foot Reflecting Pool! Within two years of the March, Congress passed two landmark civil rights laws.",
+                description: [
+                    "From the far end of the <strong>Reflecting Pool</strong>, you can see how the water mirrors the Lincoln Memorial and the crowd. Just like ripples in water, the March on Washington created waves of real legal change across the nation.",
+                    "Less than a year later, Congress passed the <strong>Civil Rights Act of 1964</strong>, which outlawed segregation in public places and banned job discrimination.",
+                    "The following year, the <strong>Voting Rights Act of 1965</strong> protected the right to vote for racial minorities across the country. And remember—many marchers in 1963 were middle school, high school, and college students who proved young people can change history!"
+                ],
+                vocab: [
+                    { word: "Civil Rights Act of 1964", def: "Landmark federal law that prohibited discrimination based on race, color, religion, sex, or national origin." },
+                    { word: "Voting Rights Act of 1965", def: "Federal legislation that removed unfair barriers (like literacy tests) that prevented Black citizens from voting." }
+                ],
+                reflection: "What is one way middle school students today can promote fairness, kindness, and inclusion in their school or community?",
+                widgetType: "legacy"
+            }
+        ];
+
+        // Interactive Theme Explorer Data for Stop 4 (100% original middle-school commentary & historical analysis)
+        const speechThemes = [
+            {
+                badge: "Part 1: The Founding Promise",
+                title: "America's 'Promissory Note'",
+                summary: "Dr. King opened by connecting the 1863 Emancipation Proclamation to the 1776 Declaration of Independence. He compared America's founding documents to a bank check that promised 'life, liberty, and the pursuit of happiness' to every citizen—and argued it was time to honor that promise for everyone.",
+                device: "Metaphor (comparing constitutional rights to a check at the bank of justice)"
+            },
+            {
+                badge: "Part 2: The Fierce Urgency of Now",
+                title: "Why Freedom Cannot Wait",
+                summary: "Some critics told civil rights marchers to slow down and wait for attitudes to change gradually. Dr. King explained why 1963 was not an end, but a beginning, urging Americans to act immediately while strictly maintaining dignity, discipline, and nonviolence.",
+                device: "Contrast (comparing the 'tranquilizing drug of gradualism' with urgent, peaceful action)"
+            },
+            {
+                badge: "Part 3: Judging by Character",
+                title: "A Vision for Future Generations",
+                summary: "Speaking without notes, Dr. King envisioned a future where his four young children—and children from former slave-owning and formerly enslaved families alike—would sit together in brotherhood and be evaluated by their inner character rather than outward appearance.",
+                device: "Anaphora (repeating an uplifting refrain to unite the audience around shared hope)"
+            },
+            {
+                badge: "Part 4: From Every Mountain",
+                title: "A Nationwide Ring of Freedom",
+                summary: "To close the speech, Dr. King took listeners on a coast-to-coast geography tour—naming New Hampshire, New York, Pennsylvania, Colorado, California, Georgia, Tennessee, and Mississippi—envisioning freedom ringing from every mountainside and village across the country.",
+                device: "Geographic Imagery & Crescendo (building energy across northern, western, and southern states)"
+            }
+        ];
+
+        // Quiz Questions for Middle Schoolers
+        const quizQuestions = [
+            {
+                q: "Why was the year 1963 and the Lincoln Memorial such a symbolic setting for the March on Washington?",
+                options: [
+                    "It was the 100th anniversary of President Abraham Lincoln's Emancipation Proclamation (1863).",
+                    "The Lincoln Memorial had just opened to the public that same week.",
+                    "It was the closest park to the U.S. Supreme Court building.",
+                    "President Lincoln had written the speech 100 years earlier."
+                ],
+                correct: 0,
+                explanation: "Correct! 1963 marked exactly 100 years since Abraham Lincoln signed the Emancipation Proclamation in 1863."
+            },
+            {
+                q: "Approximately how many people gathered at the National Mall on August 28, 1963 for Jobs and Freedom?",
+                options: [
+                    "Around 5,000 people",
+                    "Around 25,000 people",
+                    "Around 250,000 people",
+                    "Over 2 million people"
+                ],
+                correct: 2,
+                explanation: "Spot on! Roughly 250,000 people traveled by bus, train, plane, and car to participate peacefully."
+            },
+            {
+                q: "Who called out 'Tell them about the dream, Martin!' from behind the podium, inspiring Dr. King to speak from his heart without notes?",
+                options: [
+                    "Rosa Parks",
+                    "Gospel singer Mahalia Jackson",
+                    "President John F. Kennedy",
+                    "Labor leader A. Philip Randolph"
+                ],
+                correct: 1,
+                explanation: "Yes! Legendary gospel singer Mahalia Jackson encouraged Dr. King to set aside his prepared text."
+            },
+            {
+                q: "Which two key organizers planned the logistics (transportation, sound system, marshals) for the March on Washington?",
+                options: [
+                    "A. Philip Randolph and Bayard Rustin",
+                    "Abraham Lincoln and Frederick Douglass",
+                    "Thurgood Marshall and Eleanor Roosevelt",
+                    "Jackie Robinson and Langston Hughes"
+                ],
+                correct: 0,
+                explanation: "Correct! A. Philip Randolph and Bayard Rustin worked tirelessly to coordinate the peaceful gathering in just two months."
+            },
+            {
+                q: "Which two major federal laws were passed in 1964 and 1965 following the momentum of the March on Washington?",
+                options: [
+                    "The Homestead Act and the Interstate Highway Act",
+                    "The Civil Rights Act of 1964 and the Voting Rights Act of 1965",
+                    "The Bill of Rights and the 13th Amendment",
+                    "The Social Security Act and the Fair Labor Act"
+                ],
+                correct: 1,
+                explanation: "Awesome job! The Civil Rights Act (1964) ended legal segregation in public places, and the Voting Rights Act (1965) protected voting access."
+            }
+        ];
+
+        /********************************************************************
+         * 2. STATE VARIABLES & UI LOGIC
+         ********************************************************************/
+        let currentStopIndex = 0;
+        let activeThemeIndex = 0;
+        let isPanelMinimized = false;
+        let isGoldenHour = false;
+        let quizAnswers = new Array(quizQuestions.length).fill(null);
+
+        function selectStop(index) {
+            stopSpeech();
+            currentStopIndex = index;
+            const stop = tourStops[index];
+
+            // Update Panel Header
+            document.getElementById('stop-number-badge').textContent = index + 1;
+            document.getElementById('stop-subtitle').textContent = stop.subtitle;
+            document.getElementById('stop-title').textContent = stop.title;
+            document.getElementById('stop-quick-fact').innerHTML = stop.quickFact;
+
+            // Update Narrative Paragraphs
+            const descContainer = document.getElementById('stop-description');
+            descContainer.innerHTML = stop.description.map(p => `<p>${p}</p>`).join('');
+
+            // Update Interactive Sub-Widget
+            renderInteractiveWidget(stop.widgetType);
+
+            // Update Vocabulary
+            const vocabContainer = document.getElementById('stop-vocab');
+            vocabContainer.innerHTML = stop.vocab.map(v => `
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-slate-700/70">
+                    <span class="font-bold text-amber-300">${v.word}:</span>
+                    <span class="text-slate-300"> ${v.def}</span>
+                </div>
+            `).join('');
+
+            // Update Reflection Question
+            document.getElementById('stop-reflection').textContent = stop.reflection;
+
+            // Scroll panel back to top
+            document.getElementById('panel-scroll').scrollTop = 0;
+
+            // Update Bottom Dock Active States
+            tourStops.forEach((_, idx) => {
+                const btn = document.getElementById(`dock-btn-${idx}`);
+                const badge = btn.querySelector('span:first-child');
+                if (idx === index) {
+                    btn.className = "dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap bg-amber-500/20 text-amber-300 border border-amber-400/50 shadow";
+                    badge.className = "w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-[11px] font-black";
+                } else {
+                    btn.className = "dock-btn px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap bg-slate-800/70 hover:bg-slate-800 text-slate-300 border border-transparent";
+                    badge.className = "w-5 h-5 rounded-full bg-slate-700 text-white flex items-center justify-center text-[11px] font-black";
+                }
+            });
+
+            // Update 3D Hotspot Styling
+            updateHotspotStyles();
+
+            // Fly Camera smoothly to the station's target view
+            animateCameraTo(stop.cameraPos, stop.lookAt);
+        }
+
+        function nextStop() {
+            const nextIdx = (currentStopIndex + 1) % tourStops.length;
+            selectStop(nextIdx);
+        }
+
+        function prevStop() {
+            const prevIdx = (currentStopIndex - 1 + tourStops.length) % tourStops.length;
+            selectStop(prevIdx);
+        }
+
+        function renderInteractiveWidget(type) {
+            const container = document.getElementById('stop-interactive-widget');
+            if (type === 'timeline') {
+                container.innerHTML = `
+                    <div class="p-3.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-2">
+                        <div class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-hourglass-half"></i> 100 Years of History
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-700">
+                                <div class="font-black text-amber-400 text-sm">Jan 1, 1863</div>
+                                <div class="font-semibold text-white">Emancipation Proclamation</div>
+                                <p class="text-[11px] text-slate-400 mt-1">President Lincoln declares enslaved people in rebelling states free.</p>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-slate-900 border border-amber-500/40">
+                                <div class="font-black text-emerald-400 text-sm">Aug 28, 1963</div>
+                                <div class="font-semibold text-white">March on Washington</div>
+                                <p class="text-[11px] text-slate-400 mt-1">250,000 citizens gather at Lincoln's statue demanding full equality.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'organizers') {
+                container.innerHTML = `
+                    <div class="p-3.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-2.5">
+                        <div class="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-users-gear"></i> Behind the Scenes: March by the Numbers
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="p-2 rounded-lg bg-slate-900 border border-slate-700">
+                                <div class="text-base font-black text-amber-400">2,000+</div>
+                                <div class="text-[10px] text-slate-300">Chartered Buses</div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-slate-900 border border-slate-700">
+                                <div class="text-base font-black text-emerald-400">21</div>
+                                <div class="text-[10px] text-slate-300">Freedom Trains</div>
+                            </div>
+                            <div class="p-2 rounded-lg bg-slate-900 border border-slate-700">
+                                <div class="text-base font-black text-sky-400">80,000</div>
+                                <div class="text-[10px] text-slate-300">Cheese Sandwiches</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'podium') {
+                container.innerHTML = `
+                    <div class="p-3.5 rounded-xl bg-gradient-to-br from-amber-950/60 to-slate-900 border border-amber-500/40 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                                <i class="fa-solid fa-microphone-lines"></i> Turning Point on Stage
+                            </span>
+                            <button onclick="highlightPodiumWave()" class="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition">
+                                <i class="fa-solid fa-tower-broadcast mr-1"></i> Pulse Sound Waves
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-200 serif-font italic">
+                            "Tell them about the dream, Martin! Tell them about the dream!"
+                        </p>
+                        <p class="text-[11px] text-amber-200/80">— Gospel vocalist Mahalia Jackson calling out from behind the podium</p>
+                    </div>
+                `;
+            } else if (type === 'themes') {
+                renderThemeExplorer();
+            } else if (type === 'legacy') {
+                container.innerHTML = `
+                    <div class="p-3.5 rounded-xl bg-slate-800/90 border border-slate-700 space-y-2">
+                        <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-scale-balanced"></i> Impact on U.S. Law
+                        </div>
+                        <div class="space-y-1.5 text-xs">
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-900 border border-emerald-500/30">
+                                <i class="fa-solid fa-check-circle text-emerald-400"></i>
+                                <span><strong>1964 Civil Rights Act:</strong> Outlawed segregation in schools, restaurants, &amp; workplaces.</span>
+                            </div>
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-900 border border-emerald-500/30">
+                                <i class="fa-solid fa-check-circle text-emerald-400"></i>
+                                <span><strong>1965 Voting Rights Act:</strong> Protected every citizen's right to register and vote.</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderThemeExplorer() {
+            const container = document.getElementById('stop-interactive-widget');
+            const theme = speechThemes[activeThemeIndex];
+            container.innerHTML = `
+                <div class="p-3.5 rounded-xl bg-slate-800/95 border border-amber-500/40 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-layer-group"></i> Speech Theme Explorer
+                        </span>
+                        <div class="flex gap-1">
+                            ${speechThemes.map((_, idx) => `
+                                <button onclick="setThemeTab(${idx})" class="w-6 h-6 rounded-md text-xs font-bold transition ${idx === activeThemeIndex ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}">
+                                    ${idx + 1}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-slate-900 border border-slate-700 space-y-1.5">
+                        <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">${theme.badge}</span>
+                        <h4 class="font-bold text-white text-sm pt-1">${theme.title}</h4>
+                        <p class="text-xs text-slate-300 leading-relaxed">${theme.summary}</p>
+                        <div class="pt-1.5 text-[11px] text-emerald-300 font-medium flex items-center gap-1.5">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span><strong>Speech Technique:</strong> ${theme.device}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function setThemeTab(idx) {
+            activeThemeIndex = idx;
+            renderThemeExplorer();
+        }
+
+        function togglePanelMinimize() {
+            const panel = document.getElementById('info-panel');
+            const icon = document.getElementById('minimize-icon');
+            isPanelMinimized = !isPanelMinimized;
+            if (isPanelMinimized) {
+                panel.style.transform = 'translateY(calc(100% - 68px))';
+                icon.className = 'fa-solid fa-chevron-up';
+            } else {
+                panel.style.transform = 'translateY(0)';
+                icon.className = 'fa-solid fa-chevron-down';
+            }
+        }
+
+        /********************************************************************
+         * 3. WEB SPEECH API (READ-ALOUD NARRATION FOR MIDDLE SCHOOLERS)
+         ********************************************************************/
+        let isSpeaking = false;
+
+        function toggleSpeech() {
+            if (!('speechSynthesis' in window)) {
+                showToast("Read-aloud is not supported in this browser.");
+                return;
+            }
+            if (isSpeaking) {
+                stopSpeech();
+            } else {
+                startSpeech();
+            }
+        }
+
+        function startSpeech() {
+            window.speechSynthesis.cancel();
+            const stop = tourStops[currentStopIndex];
+            const cleanText = stop.title + ". " + stop.quickFact + " " + stop.description.join(" ").replace(/<[^>]*>?/gm, '');
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.rate = 0.98;
+            utterance.pitch = 1.0;
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                document.getElementById('speak-label').textContent = "Stop";
+                document.getElementById('speak-icon').className = "fa-solid fa-stop";
+                document.getElementById('waveform').classList.remove('hidden');
+                document.getElementById('waveform').classList.add('flex');
+                triggerSoundRings();
+            };
+
+            utterance.onend = () => {
+                stopSpeechUI();
+            };
+            utterance.onerror = () => {
+                stopSpeechUI();
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function stopSpeech() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            stopSpeechUI();
+        }
+
+        function stopSpeechUI() {
+            isSpeaking = false;
+            const label = document.getElementById('speak-label');
+            const icon = document.getElementById('speak-icon');
+            const wave = document.getElementById('waveform');
+            if (label) label.textContent = "Listen";
+            if (icon) icon.className = "fa-solid fa-volume-high";
+            if (wave) {
+                wave.classList.add('hidden');
+                wave.classList.remove('flex');
+            }
+        }
+
+        /********************************************************************
+         * 4. THREE.JS 3D VIRTUAL NATIONAL MALL SCENE
+         ********************************************************************/
+        let scene, camera, renderer;
+        let ambientLight, sunLight, statueLight;
+        let crowdMeshes = [];
+        let signMeshes = [];
+        let soundRingMeshes = [];
+        let waterMesh;
+        let hotspotElements = [];
+
+        // Camera Orbit & Smooth Fly-to state
+        let cameraTargetPos = new THREE.Vector3(24, 18, -20);
+        let cameraCurrentLookAt = new THREE.Vector3(0, 11, -58);
+        let cameraTargetLookAt = new THREE.Vector3(0, 11, -58);
+        let isTransitioningCamera = false;
+
+        // Spherical orbit state around current lookAt
+        let isDragging = false;
+        let prevMouse = { x: 0, y: 0 };
+        let spherical = new THREE.Spherical();
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x68a2d5);
+            scene.fog = new THREE.FogExp2(0x68a2d5, 0.0032);
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 600);
+            camera.position.set(24, 18, -20);
+            camera.lookAt(cameraCurrentLookAt);
+            syncSphericalFromCamera();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Lights
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            sunLight = new THREE.DirectionalLight(0xfff5e4, 0.95);
+            sunLight.position.set(55, 85, 40);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 10;
+            sunLight.shadow.camera.far = 240;
+            const d = 85;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            // Warm interior spotlight illuminating Abraham Lincoln's Statue
+            statueLight = new THREE.PointLight(0xffb74d, 1.6, 35);
+            statueLight.position.set(0, 18, -56);
+            scene.add(statueLight);
+
+            // Build World Architecture & Elements
+            buildGroundAndReflectingPool();
+            buildLincolnMemorial();
+            buildPodiumAndDrKing();
+            buildWashingtonMonument();
+            buildTreesAlongMall();
+            buildCrowdAndProtestSigns();
+            buildSoundWaveRings();
+            createDOMHotspots();
+
+            // Event Listeners for Mouse / Touch Camera Manipulation
+            const dom = renderer.domElement;
+            dom.addEventListener('mousedown', onPointerDown);
+            window.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('mouseup', onPointerUp);
+            dom.addEventListener('wheel', onMouseWheel, { passive: false });
+
+            dom.addEventListener('touchstart', onTouchStart, { passive: true });
+            dom.addEventListener('touchmove', onTouchMove, { passive: true });
+            dom.addEventListener('touchend', onPointerUp);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // Helper function to generate procedural Canvas textures for Protest Signs
+        function createSignTexture(textLine1, textLine2, bgColor, textColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+
+            // Placard background
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, 256, 160);
+
+            // Border
+            ctx.strokeStyle = textColor;
+            ctx.lineWidth = 8;
+            ctx.strokeRect(8, 8, 240, 144);
+
+            // Bold Historical Text
+            ctx.fillStyle = textColor;
+            ctx.font = '900 30px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(textLine1, 128, 60);
+            ctx.fillText(textLine2, 128, 105);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        function buildGroundAndReflectingPool() {
+            // Grass Lawn of the National Mall
+            const grassGeo = new THREE.PlaneGeometry(360, 420);
+            const grassMat = new THREE.MeshLambertMaterial({ color: 0x3b7a47 });
+            const grass = new THREE.Mesh(grassGeo, grassMat);
+            grass.rotation.x = -Math.PI / 2;
+            grass.receiveShadow = true;
+            scene.add(grass);
+
+            // Paved Stone Plaza & Walkways around Memorial and Reflecting Pool
+            const plazaGeo = new THREE.BoxGeometry(58, 0.3, 185);
+            const plazaMat = new THREE.MeshLambertMaterial({ color: 0xd6d3cd });
+            const plaza = new THREE.Mesh(plazaGeo, plazaMat);
+            plaza.position.set(0, 0.15, 18);
+            plaza.receiveShadow = true;
+            scene.add(plaza);
+
+            // Reflecting Pool Stone Rim
+            const poolRimGeo = new THREE.BoxGeometry(28, 0.7, 106);
+            const poolRimMat = new THREE.MeshLambertMaterial({ color: 0xe7e5e4 });
+            const poolRim = new THREE.Mesh(poolRimGeo, poolRimMat);
+            poolRim.position.set(0, 0.35, 36);
+            poolRim.receiveShadow = true;
+            scene.add(poolRim);
+
+            // Shimmering Reflecting Pool Water
+            const waterGeo = new THREE.PlaneGeometry(24, 102, 24, 48);
+            const waterMat = new THREE.MeshPhongMaterial({
+                color: 0x1d70b8,
+                specular: 0x93c5fd,
+                shininess: 90,
+                transparent: true,
+                opacity: 0.92
+            });
+            waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            waterMesh.rotation.x = -Math.PI / 2;
+            waterMesh.position.set(0, 0.75, 36);
+            scene.add(waterMesh);
+        }
+
+        function buildLincolnMemorial() {
+            const marbleMat = new THREE.MeshLambertMaterial({ color: 0xf5f5f0 });
+            const warmStoneMat = new THREE.MeshLambertMaterial({ color: 0xe6e2d8 });
+            const darkInteriorMat = new THREE.MeshLambertMaterial({ color: 0x292524 });
+
+            const memorialGroup = new THREE.Group();
+
+            // Grand Tiered Steps leading up from the plaza (z = -30 to z = -50)
+            const numSteps = 14;
+            for (let i = 0; i < numSteps; i++) {
+                const stepHeight = (i + 1) * 0.65;
+                const stepDepth = 30 - i * 1.1;
+                const stepWidth = 44;
+                const stepGeo = new THREE.BoxGeometry(stepWidth, 0.65, stepDepth);
+                const stepMesh = new THREE.Mesh(stepGeo, warmStoneMat);
+                stepMesh.position.set(0, stepHeight - 0.325, -45 - i * 0.55);
+                stepMesh.receiveShadow = true;
+                stepMesh.castShadow = true;
+                memorialGroup.add(stepMesh);
+            }
+
+            // Side Cheek Walls flanking the steps
+            const sideWallGeo = new THREE.BoxGeometry(4.5, 9.5, 22);
+            const leftWall = new THREE.Mesh(sideWallGeo, marbleMat);
+            leftWall.position.set(-23.5, 4.75, -39);
+            leftWall.castShadow = true;
+            leftWall.receiveShadow = true;
+            memorialGroup.add(leftWall);
+
+            const rightWall = new THREE.Mesh(sideWallGeo, marbleMat);
+            rightWall.position.set(23.5, 4.75, -39);
+            rightWall.castShadow = true;
+            rightWall.receiveShadow = true;
+            memorialGroup.add(rightWall);
+
+            // Speaker's Terrace Platform (where the podium stands)
+            const terraceGeo = new THREE.BoxGeometry(50, 6.2, 16);
+            const terrace = new THREE.Mesh(terraceGeo, warmStoneMat);
+            terrace.position.set(0, 3.1, -39);
+            terrace.receiveShadow = true;
+            memorialGroup.add(terrace);
+
+            // Upper Temple Base
+            const templeBaseGeo = new THREE.BoxGeometry(56, 9.2, 32);
+            const templeBase = new THREE.Mesh(templeBaseGeo, marbleMat);
+            templeBase.position.set(0, 4.6, -62);
+            templeBase.receiveShadow = true;
+            templeBase.castShadow = true;
+            memorialGroup.add(templeBase);
+
+            // Inner Chamber Dark Backdrop
+            const chamberGeo = new THREE.BoxGeometry(42, 16, 20);
+            const chamber = new THREE.Mesh(chamberGeo, darkInteriorMat);
+            chamber.position.set(0, 17, -63);
+            memorialGroup.add(chamber);
+
+            // Front & Rear Colonnade (Iconic Doric Fluted Columns)
+            const colGeo = new THREE.CylinderGeometry(1.15, 1.3, 16, 16);
+            for (let i = -5; i <= 5; i++) {
+                // Leave central gap slightly wider so Lincoln Statue is clearly visible
+                const xPos = i * 4.6;
+                const frontCol = new THREE.Mesh(colGeo, marbleMat);
+                frontCol.position.set(xPos, 17.2, -48.5);
+                frontCol.castShadow = true;
+                frontCol.receiveShadow = true;
+                memorialGroup.add(frontCol);
+
+                const backCol = new THREE.Mesh(colGeo, marbleMat);
+                backCol.position.set(xPos, 17.2, -75.5);
+                backCol.castShadow = true;
+                memorialGroup.add(backCol);
+            }
+
+            // Classical Entablature & Attic Roof
+            const roofBaseGeo = new THREE.BoxGeometry(56, 3.8, 32);
+            const roofBase = new THREE.Mesh(roofBaseGeo, marbleMat);
+            roofBase.position.set(0, 27, -62);
+            roofBase.castShadow = true;
+            memorialGroup.add(roofBase);
+
+            const atticRoofGeo = new THREE.BoxGeometry(48, 3.2, 26);
+            const atticRoof = new THREE.Mesh(atticRoofGeo, warmStoneMat);
+            atticRoof.position.set(0, 30.2, -62);
+            atticRoof.castShadow = true;
+            memorialGroup.add(atticRoof);
+
+            // Seated Abraham Lincoln Statue inside the Central Chamber
+            const lincolnGroup = new THREE.Group();
+            const statueMarble = new THREE.MeshPhongMaterial({ color: 0xfffbeb, shininess: 25 });
+
+            // Pedestal & Chair
+            const pedestal = new THREE.Mesh(new THREE.BoxGeometry(6, 2.5, 5), statueMarble);
+            pedestal.position.set(0, 10.2, -60);
+            lincolnGroup.add(pedestal);
+
+            const chairBack = new THREE.Mesh(new THREE.BoxGeometry(5.2, 6.5, 1.2), statueMarble);
+            chairBack.position.set(0, 14.5, -61.6);
+            lincolnGroup.add(chairBack);
+
+            // Seated Torso & Head of Lincoln
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.8, 2.0), statueMarble);
+            torso.position.set(0, 14.2, -60.2);
+            lincolnGroup.add(torso);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 16), statueMarble);
+            head.position.set(0, 17.1, -60.1);
+            lincolnGroup.add(head);
+
+            memorialGroup.add(lincolnGroup);
+            scene.add(memorialGroup);
+        }
+
+        function buildPodiumAndDrKing() {
+            const podiumGroup = new THREE.Group();
+            podiumGroup.position.set(0, 6.2, -38.5);
+
+            // Wooden Lectern
+            const woodMat = new THREE.MeshLambertMaterial({ color: 0x5c3a21 });
+            const lecternBody = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.3, 1.4), woodMat);
+            lecternBody.position.set(0, 1.15, 0);
+            lecternBody.castShadow = true;
+            podiumGroup.add(lecternBody);
+
+            // Cluster of 1963 Broadcast Microphones on top of the Lectern
+            const chromeMat = new THREE.MeshPhongMaterial({ color: 0xd4d4d8, shininess: 100 });
+            for (let m = -2; m <= 2; m++) {
+                const micStand = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.6, 8), chromeMat);
+                micStand.position.set(m * 0.35, 2.5, 0.4);
+                micStand.rotation.x = -0.35;
+                podiumGroup.add(micStand);
+            }
+
+            // Stylized Figure of Dr. Martin Luther King Jr. in a dark suit
+            const suitMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0x8d5524 });
+            const shirtMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+
+            const kingTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.48, 2.2, 12), suitMat);
+            kingTorso.position.set(0, 1.4, -1.1);
+            kingTorso.castShadow = true;
+            podiumGroup.add(kingTorso);
+
+            const kingCollar = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.3, 12), shirtMat);
+            kingCollar.position.set(0, 2.55, -1.1);
+            podiumGroup.add(kingCollar);
+
+            const kingHead = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 16), skinMat);
+            kingHead.position.set(0, 3.1, -1.1);
+            podiumGroup.add(kingHead);
+
+            // Raised Right Arm Gesture
+            const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.14, 1.3, 8), suitMat);
+            rightArm.position.set(0.75, 2.4, -0.7);
+            rightArm.rotation.z = -0.6;
+            rightArm.rotation.x = 0.5;
+            podiumGroup.add(rightArm);
+
+            // Stylized Figure of Mahalia Jackson nearby on the speaker's platform
+            const mahaliaDressMat = new THREE.MeshLambertMaterial({ color: 0x7e22ce });
+            const mahaliaTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 2.1, 12), mahaliaDressMat);
+            mahaliaTorso.position.set(-3.2, 1.35, -2.4);
+            podiumGroup.add(mahaliaTorso);
+
+            const mahaliaHead = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 14), skinMat);
+            mahaliaHead.position.set(-3.2, 2.9, -2.4);
+            podiumGroup.add(mahaliaHead);
+
+            scene.add(podiumGroup);
+        }
+
+        function buildWashingtonMonument() {
+            // Iconic Obelisk in the distance across the Reflecting Pool
+            const monumentGroup = new THREE.Group();
+            monumentGroup.position.set(0, 0, 165);
+
+            const obeliskMat = new THREE.MeshLambertMaterial({ color: 0xf5f5f4 });
+            const shaftGeo = new THREE.CylinderGeometry(2.2, 4.2, 62, 4);
+            const shaft = new THREE.Mesh(shaftGeo, obeliskMat);
+            shaft.position.y = 31;
+            shaft.rotation.y = Math.PI / 4;
+            shaft.castShadow = true;
+            monumentGroup.add(shaft);
+
+            const pyramidionGeo = new THREE.ConeGeometry(2.2, 6.5, 4);
+            const pyramidion = new THREE.Mesh(pyramidionGeo, obeliskMat);
+            pyramidion.position.y = 65.25;
+            pyramidion.rotation.y = Math.PI / 4;
+            monumentGroup.add(pyramidion);
+
+            scene.add(monumentGroup);
+        }
+
+        function buildTreesAlongMall() {
+            const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5c4033 });
+            const foliageColors = [0x2d6a4f, 0x40916c, 0x1b4332];
+
+            // Two lush rows of trees flanking the Reflecting Pool and Plaza
+            for (let z = -30; z <= 105; z += 11) {
+                [-26, -34, 26, 34].forEach((xBase, idx) => {
+                    const treeGroup = new THREE.Group();
+                    const xOffset = xBase + (Math.sin(z * 1.3 + idx) * 2.2);
+
+                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.75, 4.5, 7), trunkMat);
+                    trunk.position.y = 2.25;
+                    trunk.castShadow = true;
+                    treeGroup.add(trunk);
+
+                    const canopyMat = new THREE.MeshLambertMaterial({
+                        color: foliageColors[Math.abs(z + idx) % foliageColors.length]
+                    });
+                    const canopy = new THREE.Mesh(new THREE.DodecahedronGeometry(3.8 + (idx % 2) * 0.7, 1), canopyMat);
+                    canopy.position.y = 6.2;
+                    canopy.castShadow = true;
+                    treeGroup.add(canopy);
+
+                    treeGroup.position.set(xOffset, 0, z);
+                    scene.add(treeGroup);
+                });
+            }
+        }
+
+        function buildCrowdAndProtestSigns() {
+            const outfitColors = [0x1d4ed8, 0xb91c1c, 0x047857, 0xd97706, 0x6d28d9, 0x334155, 0xf8fafc, 0x0284c7];
+            const skinTones = [0x5c3826, 0x8d5524, 0xc68642, 0xe0ac69, 0xf1c27d, 0x3d2314];
+
+            // Pre-build 4 authentic March on Washington Sign Textures
+            const signTextures = [
+                createSignTexture("JOBS &", "FREEDOM", "#f8fafc", "#1e3a8a"),
+                createSignTexture("EQUAL", "RIGHTS NOW", "#fef3c7", "#991b1b"),
+                createSignTexture("END", "SEGREGATION", "#f8fafc", "#0f172a"),
+                createSignTexture("VOTING", "RIGHTS FOR ALL", "#e0f2fe", "#0c4a6e")
+            ];
+
+            const bodyGeo = new THREE.CylinderGeometry(0.36, 0.32, 1.55, 8);
+            const headGeo = new THREE.SphereGeometry(0.32, 8, 8);
+            const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6);
+            const placardGeo = new THREE.BoxGeometry(2.3, 1.45, 0.1);
+            const poleMat = new THREE.MeshLambertMaterial({ color: 0xd6d3d1 });
+
+            // Create stylized crowd figures across the plaza and along the Reflecting Pool edges
+            const crowdPositions = [];
+
+            // Dense crowd in the central plaza (z = -28 to z = -12)
+            for (let z = -27; z <= -12; z += 2.3) {
+                for (let x = -20; x <= 20; x += 2.3) {
+                    crowdPositions.push({
+                        x: x + (Math.random() - 0.5) * 1.2,
+                        z: z + (Math.random() - 0.5) * 1.2
+                    });
+                }
+            }
+
+            // Crowd lining both sides of the Reflecting Pool (z = -10 to z = 75)
+            for (let z = -10; z <= 75; z += 2.8) {
+                [-19, -16.5, -14.2, 14.2, 16.5, 19].forEach(xSide => {
+                    crowdPositions.push({
+                        x: xSide + (Math.random() - 0.5) * 1.1,
+                        z: z + (Math.random() - 0.5) * 1.2
+                    });
+                });
+            }
+
+            crowdPositions.forEach((pos, idx) => {
+                const personGroup = new THREE.Group();
+                const bodyMat = new THREE.MeshLambertMaterial({
+                    color: outfitColors[idx % outfitColors.length]
+                });
+                const skinMat = new THREE.MeshLambertMaterial({
+                    color: skinTones[idx % skinTones.length]
+                });
+
+                const body = new THREE.Mesh(bodyGeo, bodyMat);
+                body.position.y = 0.95;
+                body.castShadow = true;
+                personGroup.add(body);
+
+                const head = new THREE.Mesh(headGeo, skinMat);
+                head.position.y = 2.05;
+                personGroup.add(head);
+
+                // Every 9th marcher holds a raised protest placard facing toward the Memorial / Camera
+                if (idx % 9 === 0) {
+                    const signGroup = new THREE.Group();
+                    const pole = new THREE.Mesh(poleGeo, poleMat);
+                    pole.position.set(0.45, 2.2, 0);
+                    signGroup.add(pole);
+
+                    const signMat = new THREE.MeshBasicMaterial({
+                        map: signTextures[(idx / 9) % signTextures.length]
+                    });
+                    const placard = new THREE.Mesh(placardGeo, signMat);
+                    placard.position.set(0.45, 3.4, 0);
+                    signGroup.add(placard);
+
+                    personGroup.add(signGroup);
+                    signMeshes.push({ mesh: signGroup, phase: idx * 0.4 });
+                }
+
+                personGroup.position.set(pos.x, 0.2, pos.z);
+                scene.add(personGroup);
+                crowdMeshes.push({ mesh: personGroup, baseY: 0.2, phase: idx * 0.25 });
+            });
+        }
+
+        function buildSoundWaveRings() {
+            // Golden expanding rings around the podium to visualize Dr. King's voice echoing across the Mall
+            for (let i = 0; i < 3; i++) {
+                const ringGeo = new THREE.RingGeometry(1.5, 1.9, 32);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: 0xfbbf24,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.0
+                });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.position.set(0, 9.2, -38.5);
+                ring.rotation.x = Math.PI / 2;
+                scene.add(ring);
+                soundRingMeshes.push({ mesh: ring, scale: 1 + i * 3, active: false, delay: i * 0.33 });
+            }
+        }
+
+        function highlightPodiumWave() {
+            triggerSoundRings();
+            showToast("Broadcasting sound waves from the Lincoln Memorial Podium!");
+        }
+
+        function triggerSoundRings() {
+            soundRingMeshes.forEach((r, i) => {
+                r.active = true;
+                r.scale = 1 + i * 2.5;
+                r.mesh.material.opacity = 0.85;
+            });
+        }
+
+        /********************************************************************
+         * 5. 3D FLOATING HOTSPOT PINS IN HTML OVERLAY
+         ********************************************************************/
+        function createDOMHotspots() {
+            const layer = document.getElementById('hotspots-layer');
+            layer.innerHTML = '';
+            hotspotElements = [];
+
+            tourStops.forEach((stop, index) => {
+                const el = document.createElement('div');
+                el.className = 'hotspot-marker';
+                el.onclick = (e) => {
+                    e.stopPropagation();
+                    selectStop(index);
+                };
+                el.innerHTML = `
+                    <div id="pin-inner-${index}" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full shadow-xl border transition-all">
+                        <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-xs">${index + 1}</span>
+                        <span class="text-xs font-extrabold pr-1 hidden sm:inline whitespace-nowrap">${stop.title.split(' ')[1]}</span>
+                    </div>
+                `;
+                layer.appendChild(el);
+                hotspotElements.push({
+                    el,
+                    worldPos: new THREE.Vector3(stop.position.x, stop.position.y, stop.position.z)
+                });
+            });
+            updateHotspotStyles();
+        }
+
+        function updateHotspotStyles() {
+            tourStops.forEach((_, idx) => {
+                const pin = document.getElementById(`pin-inner-${idx}`);
+                if (!pin) return;
+                const badge = pin.querySelector('span:first-child');
+                if (idx === currentStopIndex) {
+                    pin.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-2xl border-2 border-white bg-amber-400 text-slate-950 hotspot-pulse";
+                    badge.className = "w-6 h-6 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center font-black text-xs";
+                } else {
+                    pin.className = "flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-lg border border-amber-400/60 bg-slate-900/90 text-white hover:bg-slate-800";
+                    badge.className = "w-5 h-5 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs";
+                }
+            });
+        }
+
+        function updateHotspotScreenPositions() {
+            const widthHalf = window.innerWidth / 2;
+            const heightHalf = window.innerHeight / 2;
+
+            hotspotElements.forEach((item) => {
+                const projected = item.worldPos.clone().project(camera);
+                // Check if behind camera
+                if (projected.z > 1) {
+                    item.el.style.display = 'none';
+                } else {
+                    const x = (projected.x * widthHalf) + widthHalf;
+                    const y = -(projected.y * heightHalf) + heightHalf;
+                    item.el.style.display = 'block';
+                    item.el.style.left = `${x}px`;
+                    item.el.style.top = `${y}px`;
+                }
+            });
+        }
+
+        /********************************************************************
+         * 6. CAMERA ANIMATION & FREE ORBIT INTERACTION
+         ********************************************************************/
+        function animateCameraTo(posObj, lookAtObj) {
+            cameraTargetPos.set(posObj.x, posObj.y, posObj.z);
+            cameraTargetLookAt.set(lookAtObj.x, lookAtObj.y, lookAtObj.z);
+            isTransitioningCamera = true;
+        }
+
+        function resetFreeCamera() {
+            animateCameraTo({ x: 38, y: 26, z: 45 }, { x: 0, y: 8, z: -20 });
+            showToast("Overview Camera: Drag to rotate around the National Mall!");
+        }
+
+        function syncSphericalFromCamera() {
+            const offset = camera.position.clone().sub(cameraCurrentLookAt);
+            spherical.setFromVector3(offset);
+        }
+
+        function onPointerDown(e) {
+            isDragging = true;
+            isTransitioningCamera = false;
+            prevMouse.x = e.clientX;
+            prevMouse.y = e.clientY;
+            syncSphericalFromCamera();
+        }
+
+        function onPointerMove(e) {
+            if (!isDragging) return;
+            const deltaX = e.clientX - prevMouse.x;
+            const deltaY = e.clientY - prevMouse.y;
+            prevMouse.x = e.clientX;
+            prevMouse.y = e.clientY;
+
+            spherical.theta -= deltaX * 0.0055;
+            spherical.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.06, spherical.phi - deltaY * 0.0055));
+
+            const newOffset = new THREE.Vector3().setFromSpherical(spherical);
+            camera.position.copy(cameraCurrentLookAt).add(newOffset);
+            camera.lookAt(cameraCurrentLookAt);
+        }
+
+        function onPointerUp() {
+            isDragging = false;
+        }
+
+        function onMouseWheel(e) {
+            e.preventDefault();
+            isTransitioningCamera = false;
+            syncSphericalFromCamera();
+            spherical.radius = Math.max(10, Math.min(145, spherical.radius + e.deltaY * 0.04));
+            const newOffset = new THREE.Vector3().setFromSpherical(spherical);
+            camera.position.copy(cameraCurrentLookAt).add(newOffset);
+            camera.lookAt(cameraCurrentLookAt);
+        }
+
+        function onTouchStart(e) {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                isTransitioningCamera = false;
+                prevMouse.x = e.touches[0].clientX;
+                prevMouse.y = e.touches[0].clientY;
+                syncSphericalFromCamera();
+            }
+        }
+
+        function onTouchMove(e) {
+            if (!isDragging || e.touches.length !== 1) return;
+            const deltaX = e.touches[0].clientX - prevMouse.x;
+            const deltaY = e.touches[0].clientY - prevMouse.y;
+            prevMouse.x = e.touches[0].clientX;
+            prevMouse.y = e.touches[0].clientY;
+
+            spherical.theta -= deltaX * 0.006;
+            spherical.phi = Math.max(0.15, Math.min(Math.PI / 2 - 0.06, spherical.phi - deltaY * 0.006));
+
+            const newOffset = new THREE.Vector3().setFromSpherical(spherical);
+            camera.position.copy(cameraCurrentLookAt).add(newOffset);
+            camera.lookAt(cameraCurrentLookAt);
+        }
+
+        function toggleAtmosphere() {
+            isGoldenHour = !isGoldenHour;
+            const icon = document.getElementById('lighting-icon');
+            const label = document.getElementById('lighting-label');
+
+            if (isGoldenHour) {
+                scene.background.setHex(0xe07a5f);
+                scene.fog.color.setHex(0xe07a5f);
+                sunLight.color.setHex(0xff9e44);
+                sunLight.intensity = 1.15;
+                ambientLight.color.setHex(0xf4a261);
+                icon.className = "fa-solid fa-cloud-sun text-orange-400";
+                label.textContent = "Golden Sunset";
+            } else {
+                scene.background.setHex(0x68a2d5);
+                scene.fog.color.setHex(0x68a2d5);
+                sunLight.color.setHex(0xfff5e4);
+                sunLight.intensity = 0.95;
+                ambientLight.color.setHex(0xffffff);
+                icon.className = "fa-solid fa-sun text-amber-400";
+                label.textContent = "Afternoon Sun";
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /********************************************************************
+         * 7. ANIMATION LOOP
+         ********************************************************************/
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsed = clock.getElapsedTime();
+
+            // Smooth camera fly-to transition
+            if (isTransitioningCamera) {
+                camera.position.lerp(cameraTargetPos, 0.06);
+                cameraCurrentLookAt.lerp(cameraTargetLookAt, 0.06);
+                camera.lookAt(cameraCurrentLookAt);
+
+                if (camera.position.distanceTo(cameraTargetPos) < 0.15 &&
+                    cameraCurrentLookAt.distanceTo(cameraTargetLookAt) < 0.15) {
+                    isTransitioningCamera = false;
+                    syncSphericalFromCamera();
+                }
+            }
+
+            // Gentle animation of crowd figures and protest signs
+            for (let i = 0; i < crowdMeshes.length; i++) {
+                const c = crowdMeshes[i];
+                c.mesh.position.y = c.baseY + Math.sin(elapsed * 2.4 + c.phase) * 0.07;
+            }
+            for (let i = 0; i < signMeshes.length; i++) {
+                const s = signMeshes[i];
+                s.mesh.rotation.z = Math.sin(elapsed * 2.0 + s.phase) * 0.09;
+            }
+
+            // Expand podium broadcast sound rings when active or speaking
+            soundRingMeshes.forEach((r) => {
+                if (r.active || isSpeaking) {
+                    r.scale += 0.12;
+                    r.mesh.scale.set(r.scale, r.scale, 1);
+                    r.mesh.material.opacity = Math.max(0, 0.9 - (r.scale / 18));
+                    if (r.scale > 18) {
+                        if (isSpeaking) {
+                            r.scale = 1;
+                            r.mesh.material.opacity = 0.85;
+                        } else {
+                            r.active = false;
+                            r.mesh.material.opacity = 0;
+                        }
+                    }
+                }
+            });
+
+            // Subtle shimmer on the Reflecting Pool
+            if (waterMesh) {
+                waterMesh.material.opacity = 0.88 + Math.sin(elapsed * 1.8) * 0.04;
+            }
+
+            // Update 2D screen positions of 3D Hotspots
+            updateHotspotScreenPositions();
+
+            renderer.render(scene, camera);
+        }
+
+        /********************************************************************
+         * 8. INTERACTIVE MIDDLE SCHOOL QUIZ / SCAVENGER HUNT
+         ********************************************************************/
+        function openQuizModal() {
+            const modal = document.getElementById('quiz-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            renderQuizQuestions();
+        }
+
+        function closeQuizModal() {
+            const modal = document.getElementById('quiz-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function renderQuizQuestions() {
+            const container = document.getElementById('quiz-body');
+            const score = quizAnswers.filter((ans, idx) => ans === quizQuestions[idx].correct).length;
+            const answeredCount = quizAnswers.filter(a => a !== null).length;
+
+            document.getElementById('quiz-score-badge').textContent = `${score}/${quizQuestions.length}`;
+            document.getElementById('quiz-progress-text').textContent = `Answered ${answeredCount} of ${quizQuestions.length} • Score: ${score}/5`;
+
+            container.innerHTML = quizQuestions.map((item, qIdx) => {
+                const userAns = quizAnswers[qIdx];
+                return `
+                    <div class="p-4 rounded-xl bg-slate-800/90 border border-slate-700 space-y-2.5">
+                        <div class="text-xs font-bold text-amber-400">Question ${qIdx + 1}</div>
+                        <div class="text-sm font-bold text-white">${item.q}</div>
+                        <div class="space-y-1.5 pt-1">
+                            ${item.options.map((opt, oIdx) => {
+                                let btnStyle = "bg-slate-900 hover:bg-slate-700/80 text-slate-200 border-slate-700";
+                                if (userAns !== null) {
+                                    if (oIdx === item.correct) {
+                                        btnStyle = "bg-emerald-950/90 border-emerald-500 text-emerald-200 font-bold";
+                                    } else if (oIdx === userAns && userAns !== item.correct) {
+                                        btnStyle = "bg-rose-950/90 border-rose-500 text-rose-200";
+                                    } else {
+                                        btnStyle = "bg-slate-900/50 text-slate-500 border-slate-800";
+                                    }
+                                }
+                                return `
+                                    <button onclick="answerQuiz(${qIdx}, ${oIdx})" ${userAns !== null ? 'disabled' : ''} class="w-full text-left px-3 py-2 rounded-lg border text-xs transition flex items-center justify-between ${btnStyle}">
+                                        <span>${opt}</span>
+                                        ${userAns !== null && oIdx === item.correct ? '<i class="fa-solid fa-check text-emerald-400"></i>' : ''}
+                                        ${userAns === oIdx && userAns !== item.correct ? '<i class="fa-solid fa-xmark text-rose-400"></i>' : ''}
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                        ${userAns !== null ? `
+                            <div class="p-2.5 rounded-lg text-xs ${userAns === item.correct ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-200 border border-amber-500/30'}">
+                                ${item.explanation}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function answerQuiz(qIdx, oIdx) {
+            quizAnswers[qIdx] = oIdx;
+            renderQuizQuestions();
+        }
+
+        function resetQuiz() {
+            quizAnswers = new Array(quizQuestions.length).fill(null);
+            renderQuizQuestions();
+        }
+
+        /********************************************************************
+         * 9. STANDALONE HTML FILE DOWNLOADER
+         ********************************************************************/
+        function downloadStandaloneHTML() {
+            const fullHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+            const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mlk_dream_3d_tour.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Downloaded 'mlk_dream_3d_tour.html'! You can open it in any browser.");
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-banner');
+            const label = document.getElementById('toast-message');
+            label.textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 3500);
+        }
+
+        /********************************************************************
+         * 10. INITIALIZE ON WINDOW LOAD
+         ********************************************************************/
+        window.onload = function () {
+            init3DScene();
+            selectStop(0);
+            animate();
+        };
+    </script>
+</body>
+</html>
